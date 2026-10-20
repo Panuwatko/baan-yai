@@ -1,6 +1,6 @@
 // Service worker for ทางกลับบ้านยาย (baan-yai).
 // Bump CACHE on every deploy so installed phones fetch the new version.
-const CACHE = "baanyai-v1";
+const CACHE = "baanyai-v2";
 const FONT_CACHE = "baanyai-fonts";
 
 // Every app file, relative to this script so it works under any sub-path.
@@ -13,8 +13,12 @@ const APP_FILES = [
   "./js/audio.js",
   "./js/scare.js",
   "./js/storage.js",
+  "./js/windshield.js",
+  "./data/looks.js",
   "./data/events.js",
   "./data/endings.js",
+  "./data/ambushes.js",
+  "./data/media.js",
   "./manifest.webmanifest",
   "./sw.js",
   "./icons/icon.svg",
@@ -22,6 +26,19 @@ const APP_FILES = [
   "./icons/icon-512.png",
   "./icons/icon-maskable-512.png",
   "./icons/apple-touch-icon.png",
+  "./media/pale.jpg",
+  "./media/tall.jpg",
+  "./media/crowd.jpg",
+  "./media/dog.jpg",
+  "./media/snake.jpg",
+  "./media/ghost-scream.webp",
+  "./media/ghost-hair.webp",
+  "./media/kuman.webp",
+  "./media/face-1.jpg",
+  "./media/face-2.jpg",
+  "./media/face-6.jpg",
+  "./media/face-9.jpg",
+  "./media/face-13.jpg",
 ];
 
 const FONT_HOSTS = ["fonts.googleapis.com", "fonts.gstatic.com"];
@@ -31,7 +48,8 @@ self.addEventListener("install", (event) => {
   event.waitUntil(
     caches
       .open(CACHE)
-      .then((cache) => cache.addAll(APP_FILES))
+      // cache: "reload" skips the browser's HTTP cache so a new version never precaches stale files.
+      .then((cache) => cache.addAll(APP_FILES.map((u) => new Request(u, { cache: "reload" }))))
       .then(() => self.skipWaiting())
   );
 });

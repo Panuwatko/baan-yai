@@ -1,6 +1,6 @@
 // localStorage wrappers; every access is guarded because private mode or blocked storage can throw.
 const KEY = { game: "baanyai.game", found: "baanyai.endings", prefs: "baanyai.prefs" };
-export const SAVE_VERSION = 1;
+export const SAVE_VERSION = 2;
 
 function get(key, fallback){
   try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : fallback; } catch (e) { return fallback; }
