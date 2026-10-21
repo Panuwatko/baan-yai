@@ -1,6 +1,6 @@
 // localStorage wrappers; every access is guarded because private mode or blocked storage can throw.
-const KEY = { game: "baanyai.game", found: "baanyai.endings", prefs: "baanyai.prefs" };
-export const SAVE_VERSION = 2;
+const KEY = { game: "baanyai.game", found: "baanyai.endings", prefs: "baanyai.prefs", album: "baanyai.album" };
+export const SAVE_VERSION = 3;
 
 function get(key, fallback){
   try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : fallback; } catch (e) { return fallback; }
@@ -24,3 +24,9 @@ export function addFound(key){
 
 export const loadPrefs = () => ({ jump: true, sound: true, ...get(KEY.prefs, {}) });
 export const savePrefs = p => set(KEY.prefs, p);
+
+// The trip album: small windshield snapshots taken at each decision. Kept apart from the game
+// save so the frequent saves stay small.
+export const loadAlbum = () => get(KEY.album, []);
+export function addToAlbum(entry){ const a = loadAlbum(); a.push(entry); set(KEY.album, a); }
+export function clearAlbum(){ try { localStorage.removeItem(KEY.album); } catch (e) {} }

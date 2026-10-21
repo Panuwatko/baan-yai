@@ -20,13 +20,11 @@ body{
 }
 
 /* HUD */
-.hud{display:grid; gap:12px; padding:14px 14px 12px; background:var(--asphalt); border:1px solid var(--line); border-radius:12px}
+.hud{display:grid; gap:8px; padding:10px 12px; background:var(--asphalt); border:1px solid var(--line); border-radius:12px}
 .hud-top{display:flex; align-items:center; gap:12px}
 .road{flex:1; display:flex; align-items:center; gap:10px; font-size:13px; color:var(--dim); min-width:0}
 .track{position:relative; flex:1; height:2px; background:repeating-linear-gradient(90deg,var(--dim) 0 8px,transparent 8px 16px)}
 .car{position:absolute; top:50%; width:12px; height:12px; margin-left:-6px; border-radius:50%; background:var(--lamp); transform:translateY(-50%); box-shadow:0 0 14px 4px rgba(233,180,76,.45); transition:left .8s ease}
-.pause{font:inherit; font-size:13px; color:var(--dim); background:none; border:1px solid var(--line); border-radius:999px; padding:2px 12px; cursor:pointer}
-.pause:focus-visible{outline:2px solid var(--lamp); outline-offset:2px}
 .stats{display:grid; grid-template-columns:1fr 1fr; gap:14px}
 .stat{display:grid; grid-template-columns:auto 1fr auto; align-items:center; gap:8px; font-size:13px; min-width:0}
 .stat .lbl{color:var(--dim)}
@@ -38,7 +36,7 @@ body{
 .meta{display:flex; justify-content:space-between; font-size:13px; color:var(--dim)}
 .meta .clock{color:var(--lamp)}
 .bag{display:flex; flex-wrap:wrap; gap:6px; font-size:13px}
-.bag:empty::before{content:"ของติดตัว: ไม่มี"; color:var(--dim)}
+.bag:empty{display:none}
 .chip{padding:2px 10px; border:1px solid var(--line); border-radius:999px; color:var(--fog)}
 
 /* Scene */
@@ -84,7 +82,7 @@ h2{font-size:26px}
 
 /* Focus: darkness at the edges (thicker as sanity drops), HUD fades while reading */
 .veil{position:fixed; inset:0; z-index:50; pointer-events:none;
-  background:radial-gradient(ellipse 85% 70% at 50% 48%, transparent 38%, rgba(0,0,0,var(--veil,.35)) 100%)}
+  background:radial-gradient(ellipse 130% 105% at 50% 40%, transparent 45%, rgba(0,0,0,var(--veil,.35)) 100%)}
 .hud{transition:opacity .6s}
 body.reading .hud{opacity:.3}
 .story{font-size:18px; line-height:1.85}
@@ -100,11 +98,52 @@ body.reading .hud{opacity:.3}
 .ambush{display:grid; gap:8px; justify-items:start; padding:12px 14px; border:1px solid var(--blood); border-radius:10px; font-size:15px; animation:rise .3s ease both}
 .ambush p{margin:0}
 
+/* Drive screen: windshield, time controls, driving options, the scrolling log, and the decision card */
+.drive{display:flex; flex-direction:column; gap:10px; flex:1}
+.timebar{display:flex; justify-content:space-between; align-items:center; gap:8px}
+.seg{display:flex; border:1px solid var(--line); border-radius:999px; overflow:hidden; background:var(--asphalt)}
+.seg button{flex:1; font:inherit; font-size:13px; color:var(--dim); background:none; border:0; padding:6px 10px; min-height:36px; cursor:pointer; touch-action:manipulation; font-family:var(--body)}
+.seg button.on{background:var(--lamp); color:var(--ink); font-weight:600}
+.seg button:focus-visible,.pill:focus-visible,.restbtn:focus-visible{outline:2px solid var(--lamp); outline-offset:-2px}
+#mult button{font-family:var(--mono); min-width:44px}
+.pill{font:inherit; font-size:13px; color:var(--fog); background:var(--asphalt); border:1px solid var(--line); border-radius:999px; padding:6px 14px; min-height:36px; cursor:pointer}
+.pill.on{background:var(--lamp); color:var(--ink); border-color:var(--lamp); font-weight:600}
+.paused{display:flex; flex-wrap:wrap; align-items:center; gap:8px; padding:10px 12px; border:1px solid var(--lamp); border-radius:12px; font-size:14px}
+.paused span{flex:1 1 100%; color:var(--lamp)}
+.controls{display:grid; grid-template-columns:1fr 1fr; gap:8px 10px}
+.ctl{display:grid; gap:4px; min-width:0; font-size:12px; color:var(--dim)}
+.log{flex:1; min-height:160px; max-height:42vh; overflow-y:auto; display:flex; flex-direction:column; gap:7px;
+  padding:10px 12px; background:var(--asphalt); border:1px solid var(--line); border-radius:12px; font-size:15px; line-height:1.55}
+.ln{margin:0; display:grid; grid-template-columns:auto 1fr; gap:4px 10px; animation:rise .4s ease both}
+.ln time{font-family:var(--mono); font-size:12px; color:var(--dim); padding-top:2px}
+.ln span{min-width:0}
+.ln.event span{color:var(--lamp); font-weight:600}
+.ln.scare span{color:var(--blood)}
+.ln.warn span{color:var(--lamp)}
+.ln.setting span,.ln.thought span,.ln.radio span{color:var(--dim)}
+.ln.choice span{color:var(--fog)}
+.restbtn{grid-column:2; justify-self:start; font:inherit; font-size:13px; padding:4px 14px; min-height:32px; border:1px solid var(--lamp); color:var(--lamp); background:none; border-radius:999px; cursor:pointer}
+.restbtn:disabled{opacity:.3; cursor:default}
+.card{display:flex; flex-direction:column; gap:12px; padding:14px; border:1px solid var(--line); border-radius:12px; background:var(--asphalt)}
+/* The text the player reads sits above the dark-edge veil; only the scenery gets darkened. */
+.log,.card{position:relative; z-index:60}
+.card .story{min-height:0}
+.drive.deciding .controls{display:none}
+.drive.deciding .log{flex:none; min-height:0; max-height:18vh}
+body.doze .shield,body.doze .log{filter:brightness(.06) blur(3px); transition:filter 1.4s ease-in}
+.album-title{font-family:var(--display); font-weight:400; font-size:20px; margin:16px 0 0}
+.album{display:grid; grid-template-columns:1fr 1fr; gap:12px}
+.album figure{margin:0; display:grid; gap:6px; min-width:0}
+.album img{width:100%; aspect-ratio:2/1; object-fit:cover; border-radius:8px; border:1px solid var(--line); display:block}
+.album figcaption{display:grid; gap:2px; font-size:12px; color:var(--dim)}
+.album b{color:var(--fog); font-size:13px; font-weight:600}
+.album time{font-family:var(--mono)}
+
 /* Jump scare */
 .scare{position:fixed; inset:0; z-index:100; background:#000}
 .scare canvas{display:block; width:100%; height:100%}
 .scare.shake{animation:shake .12s linear infinite}
 @keyframes shake{0%{transform:translate(0,0) scale(1.04)}25%{transform:translate(-10px,6px) scale(1.06)}50%{transform:translate(8px,-8px) scale(1.04)}75%{transform:translate(-6px,-4px) scale(1.07)}100%{transform:translate(0,0) scale(1.04)}}
 
-@media (prefers-reduced-motion:reduce){.choices.fade,.ambush{animation:none}.car,.bar i,.scene,.hud,.shield canvas,.shield.focus canvas{transition:none}}
+@media (prefers-reduced-motion:reduce){.choices.fade,.ambush,.ln{animation:none}body.doze .shield,body.doze .log{transition:none}.car,.bar i,.scene,.hud,.shield canvas,.shield.focus canvas{transition:none}}
 @media (max-width:380px){h1{font-size:36px}.stats{grid-template-columns:1fr}}

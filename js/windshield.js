@@ -1,6 +1,6 @@
 // The driver's view through the windshield, drawn on canvas and animated: road markings and roadside
 // posts slide toward the car, wipers sweep in the rain. The setting comes from the event's text.
-// A figure can be faded in at one focus point (mirror, road, forest, glass) for look moments.
+// Look moments zoom the camera onto one focus point (mirror, road, forest, glass); the ghost itself is a photo (scare.js).
 const RM = matchMedia("(prefers-reduced-motion: reduce)").matches;
 const FRAME_MS = 1000 / 30 - 2;   // a little under 33 ms so 60 Hz screens reliably land on every other frame
 
@@ -32,42 +32,10 @@ export function viewFor(id, text){
 // transform-origin for the look-moment zoom, so the camera pushes in on the right spot.
 export const FOCUS = { mirror: "50% 9%", road: "50% 50%", forest: "15% 58%", glass: "50% 48%" };
 
-function faintFace(g, x, y, s, a){
-  g.save(); g.globalAlpha = a;
-  g.fillStyle = "#000"; g.beginPath(); g.ellipse(x, y - s * .05, s * .62, s * .75, 0, 0, Math.PI * 2); g.fill();
-  const f = g.createRadialGradient(x, y - s * .1, 1, x, y, s * .5);
-  f.addColorStop(0, "#d9d6c8"); f.addColorStop(1, "#4a4f46");
-  g.fillStyle = f; g.beginPath(); g.ellipse(x, y, s * .38, s * .5, 0, 0, Math.PI * 2); g.fill();
-  g.fillStyle = "#000";
-  for (const k of [-1, 1]) { g.beginPath(); g.ellipse(x + k * s * .14, y - s * .06, s * .08, s * .1, 0, 0, Math.PI * 2); g.fill(); }
-  g.beginPath(); g.ellipse(x, y + s * .22, s * .05, s * .09, 0, 0, Math.PI * 2); g.fill();
-  g.strokeStyle = "#000"; g.lineWidth = Math.max(1, s * .012);
-  const R = rng(7);
-  for (let i = 0; i < 40; i++) {
-    const x0 = x + (i / 40 - .5) * s * .8;
-    g.beginPath(); g.moveTo(x0, y - s * .5); g.lineTo(x0 + (R() - .5) * s * .2, y + s * (.1 + R() * .5)); g.stroke();
-  }
-  g.restore();
-}
-function tallFigure(g, x, base, ht, a){
-  g.save(); g.globalAlpha = a; g.fillStyle = "#000"; g.strokeStyle = "#000"; g.lineCap = "round";
-  const head = ht * .06, bw = ht * .08, shoulder = base - ht + head * 2.6;
-  g.beginPath(); g.ellipse(x, base - ht + head, head * .8, head, .25, 0, Math.PI * 2); g.fill();
-  g.fillRect(x - bw * .5, shoulder, bw, ht * .5);
-  g.lineWidth = bw * .3;
-  for (const s of [-1, 1]) {
-    g.beginPath(); g.moveTo(x + s * bw * .5, shoulder); g.lineTo(x + s * bw * .9, base - ht * .12); g.stroke();
-    g.beginPath(); g.moveTo(x + s * bw * .2, shoulder + ht * .48); g.lineTo(x + s * bw * .3, base); g.stroke();
-  }
-  g.fillStyle = "#f2efe4";
-  for (const s of [-1, 1]) { g.beginPath(); g.arc(x + s * head * .3, base - ht + head, Math.max(1, head * .12), 0, Math.PI * 2); g.fill(); }
-  g.restore();
-}
-
 export class Windshield {
   constructor(canvas, view){
     this.cv = canvas; this.view = view; this.g = canvas.getContext("2d");
-    this.fig = null; this.figA = 0; this.raf = 0; this.t = 0;
+    this.raf = 0; this.t = 0;
     this.resize();
   }
   resize(){
@@ -95,7 +63,7 @@ export class Windshield {
     this.raf = requestAnimationFrame(loop);
   }
   stop(){ cancelAnimationFrame(this.raf); if (this.io) this.io.disconnect(); }
-  showFigure(focus, alpha){ this.fig = focus; this.figA = alpha; if (RM) this.draw(); }
+  setView(view){ this.view = view; if (RM) this.draw(); }
 
   draw(){
     const { g, w, h, t } = this, { setting, weather, seed } = this.view, R = rng(seed);
@@ -187,23 +155,19 @@ export class Windshield {
     cone.addColorStop(0, "rgba(240,215,160,.3)"); cone.addColorStop(1, "rgba(240,215,160,0)");
     g.fillStyle = cone; g.fillRect(0, 0, w, h);
 
-    // figures outside the car sit behind the fog
-    if (this.figA > 0 && this.fig === "road") tallFigure(g, w * .5, depthY(.07), h * .3, this.figA);
-    if (this.figA > 0 && this.fig === "forest") tallFigure(g, w * .15, depthY(.55), h * .72, this.figA);
 
     const fogA = weather === "fog" ? .55 : .22;
     const fog = g.createLinearGradient(0, hz - h * .2, 0, hz + h * .25);
     fog.addColorStop(0, "rgba(90,100,95,0)"); fog.addColorStop(.5, `rgba(90,100,95,${fogA})`); fog.addColorStop(1, "rgba(90,100,95,0)");
     g.fillStyle = fog; g.fillRect(0, hz - h * .2, w, h * .45);
 
-    // on the glass: rain and the face pressed against it
+    // rain on the glass
     if (weather === "rain") {
       for (let i = 0; i < 70; i++) {
         const x = R() * w, y = R() * h * .8, r = .8 + R() * 2.4;
         g.fillStyle = "rgba(200,215,210,.2)"; g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill();
       }
     }
-    if (this.figA > 0 && this.fig === "glass") faintFace(g, w * .5, h * .46, h * .62, this.figA);
     if (weather === "rain") {
       const a = -Math.PI / 2 + Math.sin(t * 2.2) * 1.05;
       g.strokeStyle = "#030303"; g.lineWidth = 4; g.lineCap = "round";
@@ -229,9 +193,6 @@ export class Windshield {
     roundRect(g, mx - 2, my - 2, mw + 4, mh + 4, mh * .45); g.fill();
     const mg = g.createLinearGradient(0, my, 0, my + mh); mg.addColorStop(0, "#1a2221"); mg.addColorStop(1, "#070909");
     g.fillStyle = mg; roundRect(g, mx, my, mw, mh, mh * .4); g.fill();
-    if (this.figA > 0 && this.fig === "mirror") {
-      g.save(); roundRect(g, mx, my, mw, mh, mh * .4); g.clip(); faintFace(g, w / 2, my + mh * .6, mh * .75, this.figA); g.restore();
-    }
 
     const v = g.createRadialGradient(w / 2, h / 2, h * .3, w / 2, h / 2, w * .62);
     v.addColorStop(0, "rgba(0,0,0,0)"); v.addColorStop(1, "rgba(0,0,0,.55)");

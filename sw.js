@@ -1,6 +1,6 @@
 // Service worker for ทางกลับบ้านยาย (baan-yai).
 // Bump CACHE on every deploy so installed phones fetch the new version.
-const CACHE = "baanyai-v3";
+const CACHE = "baanyai-v4";
 const FONT_CACHE = "baanyai-fonts";
 
 // Every app file, relative to this script so it works under any sub-path.
@@ -19,6 +19,7 @@ const APP_FILES = [
   "./data/endings.js",
   "./data/ambushes.js",
   "./data/media.js",
+  "./data/logs.js",
   "./manifest.webmanifest",
   "./sw.js",
   "./icons/icon.svg",
