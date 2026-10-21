@@ -6,6 +6,7 @@ import { AMBUSHES } from "../data/ambushes.js";
 import { LOOKS } from "../data/looks.js";
 import * as L from "../data/logs.js";
 import { SAVE_VERSION } from "./storage.js";
+import { viewFor } from "./scenery.js";
 
 export const TOTAL_KM = 420, STEP_KM = 35;
 // Game minutes per real second at x1. A normal-speed trip is ~280 game minutes, so ~30 real minutes at x1.
@@ -25,7 +26,8 @@ export function fresh(){
            ambush: 0, ambushUsed: [], fakes: 0, dread: 0, looks: 0, look: null,
            speed: "normal", lights: "low", radio: "off", win: "closed", mult: 1,
            drowsy: 0, logT: 0, nextKm: between(18, 28), nextRest: between(40, 70), restOffer: null,
-           warnedFuel: false, warnedLate: false, log: [], crash: null, damage: 0 };
+           warnedFuel: false, warnedLate: false, log: [], crash: null, damage: 0,
+           scene: { setting: "road", weather: "clear" }, thread: null, threadsUsed: [], echoed: [], recent: [] };
 }
 
 export const byId = id => EVENTS.find(e => e.id === id);
@@ -33,18 +35,54 @@ export const textOf = (e, S) => typeof e.text === "function" ? e.text(S) : e.tex
 
 /* ---------- the drive ---------- */
 
+// Picks the next travel-log line. In order of precedence: the next step of a story that is unfolding,
+// a new story, a memory of an event already passed, then a weighted mix of omens, drowsiness, the
+// current scenery, weather, the hour, settings, radio, thoughts and plain road.
 function logLine(S){
   const fill = t => t.replace("{km}", Math.floor(S.km)).replace("{town}", pick(L.TOWNS)).replace("{n}", 3 + (Math.random() * 40 | 0));
-  const r = Math.random(), omen = .12 + S.dread / 100 * .45;
-  let pool = L.ROAD, kind = "road";
-  if (S.flags.passenger && r < .15) { pool = L.PASSENGER; kind = "omen"; }
-  else if (r < omen) { pool = S.dread > 45 ? L.OMEN_HIGH : L.OMEN_LOW; kind = "omen"; }
-  else if (S.drowsy > 60 && r < omen + .25) { pool = L.DROWSY; kind = "drowsy"; }
-  else if (S.lights === "high" && r < omen + .2) { pool = L.LIGHTS_HIGH; kind = "omen"; }
-  else if (S.win === "open" && r < omen + .15) { pool = L.WINDOW_OPEN; }
-  else if (S.radio !== "off" && r < omen + .3) { pool = L.RADIO[S.radio]; kind = "radio"; }
-  else if (r < omen + .5) { pool = L.THOUGHT; kind = "thought"; }
-  return { kind, text: fill(pick(pool)) };
+  // Avoid lines shown recently: a few retries, then accept a repeat.
+  const fresh = pool => {
+    let t = pick(pool);
+    for (let i = 0; i < 4 && S.recent.includes(t); i++) t = pick(pool);
+    S.recent.push(t); if (S.recent.length > 40) S.recent.shift();
+    return t;
+  };
+  const th = S.thread;
+  if (th && S.min >= th.next) {
+    const steps = L.THREADS.find(t => t.id === th.id).steps, step = steps[th.step++];
+    if (th.step >= steps.length) S.thread = null; else th.next = S.min + between(8, 18);
+    if (step.kind === "omen") S.dread = clamp(S.dread + 3);
+    return { kind: step.kind, text: step.text };
+  }
+  if (!th && S.km > 10 && Math.random() < .07) {
+    const unused = L.THREADS.filter(t => !S.threadsUsed.includes(t.id));
+    if (unused.length) {
+      const t = pick(unused);
+      S.threadsUsed.push(t.id); S.thread = { id: t.id, step: 1, next: S.min + between(8, 18) };
+      return { kind: t.steps[0].kind, text: t.steps[0].text };
+    }
+  }
+  if (Math.random() < .08) {
+    const mem = S.used.filter(id => L.ECHO[id] && !S.echoed.includes(id));
+    if (mem.length) { const id = pick(mem); S.echoed.push(id); return { kind: "thought", text: L.ECHO[id] }; }
+  }
+  const omen = .06 + S.dread / 100 * .3, sc = S.scene || { setting: "road", weather: "clear" };
+  const hour = L.HOURS.find(h => S.min >= h.from && S.min < h.to);
+  const pools = [
+    [S.flags.passenger ? .15 : 0, L.PASSENGER, "omen"],
+    [omen, S.dread > 45 ? L.OMEN_HIGH : L.OMEN_LOW, "omen"],
+    [S.drowsy > 60 ? .25 : 0, L.DROWSY, "drowsy"],
+    [.2, L.SCENE[sc.setting], "road"],
+    [sc.weather !== "clear" ? .12 : 0, L.WEATHER[sc.weather], "road"],
+    [.06, hour.lines, "thought"],
+    [S.lights === "high" ? .1 : 0, L.LIGHTS_HIGH, "omen"],
+    [S.win === "open" ? .08 : 0, L.WINDOW_OPEN, "road"],
+    [S.radio !== "off" ? .2 : 0, L.RADIO[S.radio] || [], "radio"],
+    [.14, L.THOUGHT, "thought"]
+  ];
+  let x = Math.random();
+  for (const [w, pool, kind] of pools) { if (pool && pool.length && (x -= w) < 0) return { kind, text: fill(fresh(pool)) }; }
+  return { kind: "road", text: fill(fresh(L.ROAD)) };
 }
 
 function pickLook(S){
@@ -172,6 +210,7 @@ export function nextEvent(S){
   const e = pick(pool);
   const usable = e.choices.map((c, i) => i).filter(i => !e.choices[i].need || S.bag.includes(e.choices[i].need));
   S.cur = e.id; S.deal = shuffle(usable).slice(0, 3); S.phase = "event";
+  const v = viewFor(e.id, e.title + " " + textOf(e, S)); S.scene = { setting: v.setting, weather: v.weather };
   S.nextKm = S.km + between(31, 39);
 }
 

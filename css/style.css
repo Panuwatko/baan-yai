@@ -40,8 +40,7 @@ body{
 .chip{padding:2px 10px; border:1px solid var(--line); border-radius:999px; color:var(--fog)}
 
 /* Scene */
-.scene{flex:1; display:flex; flex-direction:column; gap:14px; transition:opacity .5s, filter .5s}
-.scene.hush{opacity:.18; filter:blur(1.5px)}
+.scene{flex:1; display:flex; flex-direction:column; gap:14px}
 .eyebrow{font-size:12px; letter-spacing:.12em; color:var(--lamp); font-family:var(--mono); margin:0}
 h1,h2{font-family:var(--display); font-weight:400; line-height:1.35; text-wrap:balance; margin:0}
 h1{font-size:44px; text-shadow:0 0 24px rgba(214,219,207,.18)}
@@ -86,8 +85,14 @@ h2{font-size:26px}
 .hud{transition:opacity .6s}
 body.reading .hud{opacity:.3}
 .story{font-size:18px; line-height:1.85}
-.app.flicker{animation:flicker 7s steps(1) infinite}
-@keyframes flicker{0%,100%{filter:none}23%{filter:brightness(.55)}24%{filter:none}61%{filter:brightness(.7)}61.6%{filter:none}62.4%{filter:brightness(.5)}63%{filter:none}}
+/* Darkening effects use one black layer over the page, not CSS filters: iOS Safari can leave a
+   scrolling box (the log) painted black after a filter is removed from one of its ancestors. */
+.shade{position:fixed; inset:0; z-index:85; background:#000; opacity:0; pointer-events:none; transition:opacity .5s}
+body.hushing .shade{opacity:.82}
+body.doze .shade{opacity:.95; transition:opacity 1.4s ease-in}
+body.blackout .shade{opacity:1; transition:opacity 1.6s ease-in}
+body.flicker:not(.hushing):not(.doze):not(.blackout) .shade{animation:flicker 7s steps(1) infinite}
+@keyframes flicker{0%,100%{opacity:0}23%{opacity:.45}24%{opacity:0}61%{opacity:.3}61.6%{opacity:0}62.4%{opacity:.5}63%{opacity:0}}
 /* Windshield view; a look moment pushes the camera in on --fx */
 .shield{overflow:hidden; border-radius:12px; border:1px solid var(--line); background:#000; flex:none}
 .shield canvas{display:block; width:100%; aspect-ratio:2/1; transform-origin:var(--fx,50% 50%); transition:transform 1.2s ease-out}
@@ -139,7 +144,6 @@ body.reading .hud{opacity:.3}
 /* The text the player reads sits above the dark-edge veil; only the scenery gets darkened. */
 .log,.card{position:relative; z-index:60}
 .card .story{min-height:0}
-body.doze .shield,body.doze .log{filter:brightness(.06) blur(3px); transition:filter 1.4s ease-in}
 .album-title{font-family:var(--display); font-weight:400; font-size:20px; margin:16px 0 0}
 .album{display:grid; grid-template-columns:1fr 1fr; gap:12px}
 .album figure{margin:0; display:grid; gap:6px; min-width:0}
@@ -151,7 +155,6 @@ body.doze .shield,body.doze .log{filter:brightness(.06) blur(3px); transition:fi
 /* Crash: a hard shake, and a blackout for one that ends the trip */
 .app.crash{animation:crash .7s cubic-bezier(.3,.9,.4,1)}
 @keyframes crash{0%{transform:none}10%{transform:translate(-14px,8px) rotate(-1.5deg)}25%{transform:translate(12px,-10px) rotate(1.2deg)}45%{transform:translate(-8px,6px) rotate(-.6deg)}70%{transform:translate(4px,-2px)}100%{transform:none}}
-body.blackout .app{filter:brightness(0); transition:filter 1.6s ease-in}
 
 /* Jump scare */
 .scare{position:fixed; inset:0; z-index:100; background:#000}
@@ -159,5 +162,5 @@ body.blackout .app{filter:brightness(0); transition:filter 1.6s ease-in}
 .scare.shake{animation:shake .12s linear infinite}
 @keyframes shake{0%{transform:translate(0,0) scale(1.04)}25%{transform:translate(-10px,6px) scale(1.06)}50%{transform:translate(8px,-8px) scale(1.04)}75%{transform:translate(-6px,-4px) scale(1.07)}100%{transform:translate(0,0) scale(1.04)}}
 
-@media (prefers-reduced-motion:reduce){.choices.fade,.ambush,.ln,.app.crash,#card,.backdrop{animation:none}body.doze .shield,body.doze .log{transition:none}.car,.bar i,.scene,.hud,.shield canvas,.shield.focus canvas{transition:none}}
+@media (prefers-reduced-motion:reduce){.choices.fade,.ambush,.ln,.app.crash,#card,.backdrop{animation:none}.shade{transition:none}.car,.bar i,.hud,.shield canvas,.shield.focus canvas{transition:none}}
 @media (max-width:380px){h1{font-size:36px}.stats{grid-template-columns:1fr}}

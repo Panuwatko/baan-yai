@@ -69,7 +69,7 @@ function hud(show){
   // The darkness at the screen edges closes in as sanity drops; below 35 the light starts to flicker.
   const san = show ? S.san : 100;
   document.documentElement.style.setProperty("--veil", (.35 + (100 - san) / 100 * .55).toFixed(2));
-  document.querySelector(".app").classList.toggle("flicker", show && san < 35 && !RM);
+  document.body.classList.toggle("flicker", show && san < 35 && !RM);
   sfx.tension(show && S.phase !== "end" ? san : 100);
   if (!show) return;
   const san0 = Math.round(S.san), fuel0 = Math.round(S.fuel);

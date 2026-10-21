@@ -1,6 +1,8 @@
 // The driver's view through the windshield, drawn on canvas and animated: road markings and roadside
 // posts slide toward the car, wipers sweep in the rain. The setting comes from the event's text.
 // Look moments zoom the camera onto one focus point (mirror, road, forest, glass); the ghost itself is a photo (scare.js).
+export { viewFor } from "./scenery.js";
+
 const RM = matchMedia("(prefers-reduced-motion: reduce)").matches;
 const FRAME_MS = 1000 / 30 - 2;   // a little under 33 ms so 60 Hz screens reliably land on every other frame
 
@@ -12,21 +14,9 @@ function rng(seed){
     return ((t ^ t >>> 14) >>> 0) / 4294967296;
   };
 }
-function hash(s){ let h = 2166136261; for (const ch of s) { h ^= ch.codePointAt(0); h = Math.imul(h, 16777619); } return h >>> 0; }
 function roundRect(g, x, y, w, h, r){
   g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r);
   g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath();
-}
-
-// First matching keyword wins; everything else is open road.
-const SETTINGS = [[/สะพาน/, "bridge"], [/รถไฟ/, "rail"], [/ปั๊ม|ร้าน|ตู้น้ำมัน|ด่าน|ไฟถนน/, "lights"],
-                  [/ศาล|วัด|เจดีย์/, "shrine"], [/ป่า|ต้นไม้|ตานี|กล้วย|สวนยาง|จามจุรี/, "forest"]];
-export function viewFor(id, text){
-  const setting = (SETTINGS.find(([re]) => re.test(text)) || [null, "road"])[1];
-  const seed = hash(id);
-  // Events that don't mention the weather get some anyway, fixed per event so it stays consistent.
-  const weather = /ฝน/.test(text) ? "rain" : /หมอก/.test(text) ? "fog" : ["rain", "fog", "clear", "clear", "clear"][seed % 5];
-  return { setting, weather, seed };
 }
 
 // transform-origin for the look-moment zoom, so the camera pushes in on the right spot.

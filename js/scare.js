@@ -98,18 +98,18 @@ function flash(type){
 // buildup "hush": dim + silence first (the classic). "none": hits instantly with no warning.
 export async function jumpScare(type, scene, { buildup = "hush" } = {}){
   ensure();
-  if (buildup === "hush") { scene.classList.add("hush"); quiet(true); await wait(rand(...BUILD_UP)); }
+  if (buildup === "hush") { document.body.classList.add("hushing"); quiet(true); await wait(rand(...BUILD_UP)); }
   flash(type);
   await wait(SHOW_MS);
   overlay.hidden = true; overlay.classList.remove("shake");
-  scene.classList.remove("hush"); quiet(false);
+  document.body.classList.remove("hushing"); quiet(false);
 }
 
 // Looks exactly like a hush build-up, but nothing comes. Keeps players from reading the pattern.
 export async function fakeOut(scene){
-  scene.classList.add("hush"); quiet(true);
+  document.body.classList.add("hushing"); quiet(true);
   await wait(rand(700, 1300));
   if (Math.random() < .5) creak();
   await wait(rand(900, 1500));
-  scene.classList.remove("hush"); quiet(false);
+  document.body.classList.remove("hushing"); quiet(false);
 }
