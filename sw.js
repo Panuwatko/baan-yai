@@ -1,6 +1,6 @@
 // Service worker for ทางกลับบ้านยาย (baan-yai).
 // Bump CACHE on every deploy so installed phones fetch the new version.
-const CACHE = "baanyai-v2";
+const CACHE = "baanyai-v3";
 const FONT_CACHE = "baanyai-fonts";
 
 // Every app file, relative to this script so it works under any sub-path.
@@ -26,11 +26,8 @@ const APP_FILES = [
   "./icons/icon-512.png",
   "./icons/icon-maskable-512.png",
   "./icons/apple-touch-icon.png",
-  "./media/pale.jpg",
   "./media/tall.jpg",
   "./media/crowd.jpg",
-  "./media/dog.jpg",
-  "./media/snake.jpg",
   "./media/ghost-scream.webp",
   "./media/ghost-hair.webp",
   "./media/kuman.webp",

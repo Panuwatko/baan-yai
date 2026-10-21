@@ -4,11 +4,8 @@
 
 | ไฟล์ | ใช้กับ | แหล่งที่มา | License |
 |---|---|---|---|
-| pale.jpg | ผีหน้าซีด | https://www.pexels.com/photo/person-in-black-coat-standing-in-forest-194917/ | Pexels License |
 | tall.jpg | เงาสูง | https://www.pexels.com/photo/silhouette-of-a-person-standing-in-a-dark-forest-26612520/ | Pexels License |
 | crowd.jpg | ฝูงหน้าคน / เทียน | https://www.pexels.com/photo/spine-chilling-horror-scene-with-inverted-figure-29263910/ | Pexels License |
-| dog.jpg | หมาดำ | https://www.pexels.com/photo/an-aggressive-dog-with-sharp-teeth-7364544/ | Pexels License |
-| snake.jpg | งูเห่า | https://www.pexels.com/photo/portrait-of-cobra-in-black-and-white-15774267/ | Pexels License |
 | face-1.jpg | หน้าผี | https://www.pexels.com/photo/28859503/ | Pexels License |
 | face-2.jpg | หน้าผี | https://www.pexels.com/photo/34150170/ | Pexels License |
 | face-6.jpg | หน้าผี | https://www.pexels.com/photo/34150171/ | Pexels License |

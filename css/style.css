@@ -10,7 +10,6 @@
 html,body{height:100%; margin:0}
 body{
   background:radial-gradient(ellipse 90% 45% at 50% 108%, rgba(233,180,76,.10), transparent 70%), var(--night);
-  background-attachment:fixed;
   color:var(--fog); font-family:var(--body); font-size:17px; line-height:1.7;
   -webkit-tap-highlight-color:transparent; -webkit-text-size-adjust:100%;
   padding-left:max(16px,env(safe-area-inset-left,0px)); padding-right:max(16px,env(safe-area-inset-right,0px));

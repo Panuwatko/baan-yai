@@ -5,11 +5,12 @@ import { AMBUSHES } from "../data/ambushes.js";
 import { LOOKS } from "../data/looks.js";
 import { SAVE_VERSION } from "./storage.js";
 
-export const TOTAL_KM = 420, STEP_KM = 60, FUEL_PER_LEG = 8, MIN_PER_LEG = 35, MAX_SCARES = 3;
+// 12 legs of 35 km. Each leg also lets you steady yourself a little (REST sanity).
+export const TOTAL_KM = 420, STEP_KM = 35, FUEL_PER_LEG = 5, MIN_PER_LEG = 24, MAX_SCARES = 4, REST = 5;
 // Surprise scares and fake build-ups make the timing of a scare hard to read.
-const MAX_AMBUSH = 2, AMBUSH_CHANCE = .3, MAX_FAKES = 2, FAKE_CHANCE = .2;
+const MAX_AMBUSH = 3, AMBUSH_CHANCE = .3, MAX_FAKES = 3, FAKE_CHANCE = .2;
 // Look moments: how often one follows a result, and how many per trip.
-const LOOK_CHANCE = .4, MAX_LOOKS = 3, LOOK_SANITY = -10;
+const LOOK_CHANCE = .4, MAX_LOOKS = 4, LOOK_SANITY = -6;
 const clamp = v => Math.max(0, Math.min(100, v));
 const shuffle = a => { for (let i = a.length - 1; i > 0; i--) { const j = Math.random() * (i + 1) | 0; [a[i], a[j]] = [a[j], a[i]]; } return a; };
 
@@ -23,8 +24,8 @@ export function fresh(){
 export const byId = id => EVENTS.find(e => e.id === id);
 export const textOf = (e, S) => typeof e.text === "function" ? e.text(S) : e.text;
 
-// Early legs draw tier 0, middle legs tier 1, the last stretch tier 2; tier -1 can appear anywhere.
-const stage = S => S.leg < 2 ? 0 : S.leg < 5 ? 1 : 2;
+// Legs 1-4 draw tier 0, legs 5-8 tier 1, the last stretch tier 2; tier -1 can appear anywhere.
+const stage = S => S.leg < 4 ? 0 : S.leg < 8 ? 1 : 2;
 
 export function nextEvent(S){
   const st = stage(S), unused = EVENTS.filter(e => !S.used.includes(e.id));
@@ -93,8 +94,9 @@ function resolve(c){
 //   { ghost: null, mode: "fake" } the same build-up, but nothing comes
 export function choose(S, i, jumpOn){
   const e = byId(S.cur), c = e.choices[i], o = resolve(c);
-  const before = { san: S.san, fuel: S.fuel }, km = o.km || 0;
-  S.san = clamp(S.san + (o.s || 0));
+  // Event data uses km: 60 / -60 to mean "shortcut" / "got lost"; only the sign matters here.
+  const before = { san: S.san, fuel: S.fuel }, km = Math.sign(o.km || 0) * STEP_KM;
+  S.san = clamp(S.san + (o.s || 0) + REST);
   S.fuel = clamp(S.fuel + (o.f || 0) - FUEL_PER_LEG);
   S.km = Math.max(0, Math.min(TOTAL_KM, S.km + STEP_KM + km));
   S.min += MIN_PER_LEG + (o.t || 0);

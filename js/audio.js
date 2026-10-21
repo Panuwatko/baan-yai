@@ -76,29 +76,13 @@ function playSample(type){
   return true;
 }
 
-// type = ghost type; uses its sound file if one is loaded.
-// kind (synth fallback): "scream" (ghosts), "screech" (owl), "growl" (dog), "hiss" (snake)
-export function scream(kind = "scream", type){
+// type = ghost type; uses its sound file if one is loaded, otherwise a synthesized scream.
+export function scream(type){
   const a = ctx(); if (!a) return;
   if (type && playSample(type)) return;
-  const t = a.currentTime;
-  if (kind === "screech") {
-    const out = burst(a, t, .7, .9);
-    noise(a, t, .9, "bandpass", 3200, 2, out);
-    [2600, 2690].forEach(f => saw(a, t, .85, f, f * 1.15, f * .62, .18, out));
-  } else if (kind === "growl") {
-    const out = burst(a, t, .8, .8);
-    noise(a, t, .8, "lowpass", 420, 1, out);
-    [82, 124].forEach(f => saw(a, t, .75, f, f * 1.3, f * .8, .35, out));
-    saw(a, t + .04, .18, 380, 420, 190, .4, out);   // the bark on top of the growl
-  } else if (kind === "hiss") {
-    const out = burst(a, t, .55, 1.1);
-    noise(a, t, 1.1, "highpass", 4200, .5, out);
-  } else {
-    const out = burst(a, t, .75, 1.1);
-    noise(a, t, 1.1, "bandpass", 1900, .7, out);
-    [520, 553, 1107].forEach(f => saw(a, t, 1.1, f, f * 1.6, f * .7, .22, out));
-  }
+  const t = a.currentTime, out = burst(a, t, .75, 1.1);
+  noise(a, t, 1.1, "bandpass", 1900, .7, out);
+  [520, 553, 1107].forEach(f => saw(a, t, 1.1, f, f * 1.6, f * .7, .22, out));
 }
 
 // A slow creak used by fake-outs: something is there, then nothing happens.

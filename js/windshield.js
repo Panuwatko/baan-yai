@@ -2,6 +2,7 @@
 // posts slide toward the car, wipers sweep in the rain. The setting comes from the event's text.
 // A figure can be faded in at one focus point (mirror, road, forest, glass) for look moments.
 const RM = matchMedia("(prefers-reduced-motion: reduce)").matches;
+const FRAME_MS = 1000 / 30 - 2;   // a little under 33 ms so 60 Hz screens reliably land on every other frame
 
 function rng(seed){
   return () => {
@@ -75,12 +76,25 @@ export class Windshield {
     this.cv.width = Math.round(this.w * dpr); this.cv.height = Math.round(this.h * dpr);
     this.g.setTransform(dpr, 0, 0, dpr, 0, 0);
   }
+  // Animates at ~30 fps (plenty for slow road motion, half the battery of 60) and only while the
+  // view is on screen; scrolled away it stops redrawing until it comes back.
   start(){
-    if (RM) { this.draw(); return; }
-    const loop = ts => { this.t = ts / 1000; this.draw(); this.raf = requestAnimationFrame(loop); };
+    this.draw();
+    if (RM) return;
+    let last = 0;
+    const loop = ts => {
+      this.raf = requestAnimationFrame(loop);
+      if (!this.visible || ts - last < FRAME_MS) return;
+      last = ts; this.t = ts / 1000; this.draw();
+    };
+    this.visible = true;
+    if ("IntersectionObserver" in window) {
+      this.io = new IntersectionObserver(([e]) => { this.visible = e.isIntersecting; });
+      this.io.observe(this.cv);
+    }
     this.raf = requestAnimationFrame(loop);
   }
-  stop(){ cancelAnimationFrame(this.raf); }
+  stop(){ cancelAnimationFrame(this.raf); if (this.io) this.io.disconnect(); }
   showFigure(focus, alpha){ this.fig = focus; this.figA = alpha; if (RM) this.draw(); }
 
   draw(){
