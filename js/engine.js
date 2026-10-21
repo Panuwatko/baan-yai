@@ -25,7 +25,7 @@ export function fresh(){
            ambush: 0, ambushUsed: [], fakes: 0, dread: 0, looks: 0, look: null,
            speed: "normal", lights: "low", radio: "off", win: "closed", mult: 1,
            drowsy: 0, logT: 0, nextKm: between(18, 28), nextRest: between(40, 70), restOffer: null,
-           warnedFuel: false, warnedLate: false, log: [] };
+           warnedFuel: false, warnedLate: false, log: [], crash: null, damage: 0 };
 }
 
 export const byId = id => EVENTS.find(e => e.id === id);
@@ -88,7 +88,7 @@ export function drive(S, gm){
     const nearDecision = S.nextKm - S.km < 6;
     if (S.km > 15 && !nearDecision && S.ambush < MAX_AMBUSH && Math.random() < dt * .004 * sp.risk * (S.win === "open" ? 1.4 : 1) * (1 + S.dread / 100)) {
       const left = AMBUSHES.map((a, i) => i).filter(i => !S.ambushUsed.includes(i));
-      if (left.length) { const i = pick(left); S.ambushUsed.push(i); out.push({ type: "ambush", a: triggerAmbush(S, i) }); break; }
+      if (left.length) { const i = pick(left); S.ambushUsed.push(i); out.push({ type: "ambush", a: triggerAmbush(S, i), crash: crashRoll(S, .06) }); break; }
     }
     if (S.km > 40 && !nearDecision && S.looks < MAX_LOOKS && Math.random() < dt * .005 * (S.lights === "high" ? 1.7 : 1)) {
       S.looks++; S.look = pickLook(S); out.push({ type: "look" }); break;
@@ -105,6 +105,23 @@ export function drive(S, gm){
 
 export function setOption(S, key, value){ S[key] = value; return L.SETTING_LINES[key][value]; }
 
+// Startled, drowsy, reckless or fast: the car can leave the road. Odds scale with speed, drowsiness,
+// low sanity and damage from earlier crashes; how bad it is depends mostly on speed.
+// Returns null, or { sev: "minor" | "hospital" | "disabled" | "dead", text }.
+// A severe crash sets S.crash, which ends the trip through the matching ending.
+const CRASH_SPEED = { slow: .5, normal: 1, fast: 2 }, CRASH_SEVERITY = { slow: .55, normal: .92, fast: 1 };
+function crashRoll(S, chance){
+  const p = chance * CRASH_SPEED[S.speed] * (1 + S.drowsy / 100) * (S.san < 30 ? 1.5 : 1) * (1 + S.damage * .3);
+  if (Math.random() > p) return null;
+  const x = Math.random() * CRASH_SEVERITY[S.speed] + S.damage * .08;
+  if (x < .55) {
+    S.damage++; S.san = clamp(S.san - 10); S.fuel = clamp(S.fuel - 4); S.min += 20; S.dread = clamp(S.dread + 5);
+    return { sev: "minor", text: pick(L.CRASH_MINOR) + "  (สติ −10)" };
+  }
+  S.crash = x < .75 ? "hospital" : x < .88 ? "disabled" : "dead";
+  return { sev: S.crash, text: L.CRASH_SEVERE };
+}
+
 function triggerAmbush(S, i){
   const a = AMBUSHES[i], before = S.san;
   S.ambush++; S.san = clamp(S.san + (a.s || 0)); S.dread = clamp(S.dread + 6);
@@ -115,14 +132,15 @@ export function finishLook(S){
   const hit = S.look.hit, before = S.san;
   if (hit) { S.san = clamp(S.san + LOOK_SANITY); S.dread = clamp(S.dread + 5); }
   S.look = null;
-  return { hit, ds: S.san - before };
+  const crash = hit ? crashRoll(S, .05) : null;
+  return { hit, ds: S.san - before, crash };
 }
 
 // Nodding off at the wheel: you might wake in time, wake somewhere else, or wake to a face.
 function doze(S){
   const r = Math.random(), before = S.san;
   let res;
-  if (r < .5) res = { text: "รถส่ายไปชนหลักนำทาง คุณสะดุ้งตื่นทันก่อนรถตกข้างทาง หัวใจเต้นแรง", ghost: null };
+  if (r < .5) res = { text: "รถส่ายออกนอกเลน คุณสะดุ้งตื่น หัวใจเต้นแรง", ghost: null, crash: crashRoll(S, 1) };
   else if (r < .8) { S.km = Math.max(0, S.km - 20); S.lost += .5; res = { text: "คุณวูบไปพักหนึ่ง ตื่นมาอีกที รถจอดอยู่ข้างทางที่ไม่คุ้นตา ต้องย้อนกลับไปเกือบ 20 กิโล", ghost: null }; }
   else res = { text: "คุณหลับไปแค่วินาทีเดียว ลืมตาขึ้นมาเจอหน้าใครคนหนึ่งแนบกระจกหน้ารถ", ghost: "pale" };
   S.san = clamp(S.san - (res.ghost ? 15 : 8)); S.drowsy = clamp(S.drowsy - 45);
@@ -166,6 +184,7 @@ function updateDread(S, c, o){
 }
 
 // Even a good choice can go wrong: 20% with no dread, up to 50% when dread is full.
+const RECKLESS = /เร่ง|เหยียบ|ฝ่า|ชน|หนี/;
 export const twistChance = S => .2 + S.dread / 100 * .3;
 
 function resolve(c){
@@ -208,6 +227,9 @@ export function choose(S, i, jumpOn){
   S.used.push(e.id); S.leg++;
   S.res = { title: e.title, choice: c.label, text: o.text, ds: S.san - before.san, df: S.fuel - before.fuel,
             item: tw ? null : o.item || null, used: !tw && o.use ? c.need : null, lost: km < 0, short: km > 0, twist: !!tw };
+  // Reckless choices on a night road can end in a crash.
+  const crash = RECKLESS.test(c.label) ? crashRoll(S, .12) : null;
+  if (crash) { S.res.crash = crash.sev; S.res.text += " " + L.CRASH_RECKLESS + (crash.sev === "minor" ? "" : " แล้วทุกอย่างก็มืดไป"); S.res.ds = S.san - before.san; }
   S.phase = "result";
   updateDread(S, c, o);
   if (tw) S.dread = clamp(S.dread + 10);

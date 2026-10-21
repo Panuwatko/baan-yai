@@ -167,6 +167,13 @@ const CONTROLS = [
   ["radio", "วิทยุ", [["off", "ปิด"], ["music", "เพลง"], ["dhamma", "ธรรมะ"]]],
   ["win", "กระจก", [["closed", "ปิด"], ["open", "แง้ม"]]]
 ];
+// How the current settings read in the one-line summary under the time controls.
+const SUMMARY = {
+  speed: { slow: "ขับช้า", normal: "ขับปกติ", fast: "ขับเร็ว" },
+  lights: { low: "ไฟต่ำ", high: "ไฟสูง" },
+  radio: { off: "วิทยุปิด", music: "เปิดเพลง", dhamma: "ฟังธรรมะ" },
+  win: { closed: "กระจกปิด", open: "แง้มกระจก" }
+};
 const segHtml = (key, opts) => `<div class="seg" data-key="${key}" role="group">${opts.map(([v, t]) => `<button data-v="${v}">${t}</button>`).join("")}</div>`;
 
 function renderDrive(){
@@ -176,27 +183,38 @@ function renderDrive(){
       <div class="shield" id="shield"><canvas aria-hidden="true"></canvas></div>
       <div class="timebar">
         <div class="seg" id="mult" role="group" aria-label="ความเร็วเวลา">${E.MULTS.map(m => `<button data-v="${m}">x${m}</button>`).join("")}</div>
+        <button class="pill" id="setupBtn">ปรับการขับ</button>
         <button class="pill" id="pauseBtn">จอดพัก</button>
       </div>
+      <p class="drivesum" id="drivesum"></p>
       <div class="paused" id="paused" hidden>
         <span>จอดพักข้างทาง เวลาหยุดเดิน</span>
         <button class="pill on" id="goOn">ขับต่อ</button>
         <button class="pill" id="home">หน้าหลัก</button>
       </div>
-      <div class="controls" id="controls">
-        ${CONTROLS.map(([k, label, opts]) => `<div class="ctl"><span>${label}</span>${segHtml(k, opts)}</div>`).join("")}
-      </div>
       <div class="log" id="log" aria-live="polite"></div>
-      <div class="card" id="card" hidden></div>
+      <div class="backdrop" id="backdrop" hidden></div>
+      <div class="card" id="card" role="dialog" aria-modal="true" hidden></div>
+      <div class="card sheet" id="setup" role="dialog" aria-modal="true" aria-label="ปรับการขับ" hidden>
+        <h2>ปรับการขับ</h2>
+        <p class="tap">เวลาหยุดเดินระหว่างปรับ</p>
+        <div class="controls">
+          ${CONTROLS.map(([k, label, opts]) => `<div class="ctl"><span>${label}</span>${segHtml(k, opts)}</div>`).join("")}
+        </div>
+        <button class="btn primary" id="setupDone">ขับต่อ</button>
+      </div>
     </div>`;
   mountShield();
   for (const line of S.log) appendLine(line);
-  $("log").scrollTop = $("log").scrollHeight;
+  $("log").scrollTop = 0;
   for (const g of document.querySelectorAll(".seg[data-key]"))
     g.onclick = e => { const b = e.target.closest("button"); if (!b || S[g.dataset.key] === b.dataset.v) return;
                        addLog(E.setOption(S, g.dataset.key, b.dataset.v), "setting"); refreshControls(); store.saveGame(S); };
   $("mult").onclick = e => { const b = e.target.closest("button"); if (b) { S.mult = +b.dataset.v; refreshControls(); } };
   $("pauseBtn").onclick = () => setPaused(true);
+  $("setupBtn").onclick = () => openSetup(true);
+  $("setupDone").onclick = () => openSetup(false);
+  $("backdrop").onclick = () => { if (!$("setup").hidden) openSetup(false); };
   $("goOn").onclick = () => setPaused(false);
   $("home").onclick = () => { store.saveGame(S); paused = false; showStart(); };
   refreshControls();
@@ -210,6 +228,13 @@ function refreshControls(){
   for (const g of document.querySelectorAll(".seg[data-key]"))
     for (const b of g.children) { const on = S[g.dataset.key] === b.dataset.v; b.classList.toggle("on", on); b.setAttribute("aria-pressed", on); }
   for (const b of $("mult").children) { const on = +b.dataset.v === S.mult; b.classList.toggle("on", on); b.setAttribute("aria-pressed", on); }
+  $("drivesum").textContent = Object.entries(SUMMARY).map(([k, m]) => m[S[k]]).join(" · ");
+}
+// The driving options live in a pop-up; the clock holds while it is open.
+let setupOpen = false;
+function openSetup(on){
+  setupOpen = on; $("setup").hidden = !on; $("backdrop").hidden = !on && $("card").hidden;
+  if (!on) store.saveGame(S);
 }
 function setPaused(on){
   paused = on; $("paused").hidden = !on; $("pauseBtn").hidden = on;
@@ -217,16 +242,17 @@ function setPaused(on){
 }
 
 /* ---------- the log ---------- */
+// Newest line goes on top and pushes older ones down; the oldest fall off the bottom.
 function appendLine(line, extra){
   const el = $("log"); if (!el) return;
-  const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 60;
+  const atTop = el.scrollTop < 60;
   const p = document.createElement("p");
   p.className = "ln " + (line.kind || "road");
   p.innerHTML = `<time>${hhmm(line.t)}</time><span>${esc(line.text)}</span>`;
   if (extra) p.appendChild(extra);
-  el.appendChild(p);
-  while (el.children.length > LOG_KEEP) el.firstChild.remove();
-  if (atBottom) el.scrollTop = el.scrollHeight;
+  el.prepend(p);
+  while (el.children.length > LOG_KEEP) el.lastChild.remove();
+  if (atTop) el.scrollTop = 0;
 }
 function addLog(text, kind, extra){
   const line = { t: S.min, kind, text };
@@ -241,10 +267,11 @@ function stopLoop(){ clearInterval(timer); timer = null; }
 async function tick(){
   const now = performance.now(), dt = Math.min(1, (now - lastTick) / 1000);
   lastTick = now;
-  if (busy || paused || document.hidden || !S || S.phase !== "drive") return;
+  if (busy || paused || setupOpen || document.hidden || !S || S.phase !== "drive") return;
   busy = true;
-  for (const h of E.drive(S, dt * E.BASE_RATE * S.mult)) await handle(h);
-  if (S.phase === "drive") busy = false;
+  try { for (const h of E.drive(S, dt * E.BASE_RATE * S.mult)) await handle(h); }
+  catch (err) { console.error(err); }   // a broken effect must not freeze the drive
+  finally { if (S.phase === "drive") busy = false; }
   for (const b of document.querySelectorAll(".restbtn")) b.disabled = !S.restOffer;
   if (S.phase !== "end") hud(true);
   if (now - savedAt > SAVE_MS && S.phase !== "end") { savedAt = now; store.saveGame(S); }
@@ -256,6 +283,7 @@ async function handle(h){
   else if (h.type === "ambush") {
     if (prefs.jump) await jumpScare(h.a.ghost, scene, { buildup: "none" }); else await sleep(300);
     addLog(h.a.text + (h.a.ds ? `  (สติ −${Math.abs(h.a.ds)})` : ""), "scare");
+    if (h.crash) await crashMoment(h.crash);
     store.saveGame(S);
   }
   else if (h.type === "look") await lookMoment();
@@ -277,6 +305,7 @@ async function lookMoment(){
   const r = E.finishLook(S);
   addLog((r.hit ? info.hit : info.miss) + (r.ds ? `  (สติ −${Math.abs(r.ds)})` : ""), r.hit ? "scare" : "thought");
   shield.classList.remove("focus"); document.body.classList.remove("reading");
+  if (r.crash) await crashMoment(r.crash);
   store.saveGame(S);
 }
 
@@ -308,16 +337,35 @@ async function dozeMoment(h){
   document.body.classList.remove("doze");
   if (h.ghost && prefs.jump) await jumpScare(h.ghost, scene, { buildup: "none" });
   addLog(h.text + `  (สติ −${Math.abs(h.ds)})`, h.ghost ? "scare" : "warn");
+  if (h.crash) await crashMoment(h.crash);
   store.saveGame(S);
 }
 
+// The car leaves the road: shake, crunch, and for a bad one the screen goes dark before the
+// ending (which the next tick picks up from S.crash).
+async function crashMoment(c, keepDark = true){
+  sfx.crash();
+  try { navigator.vibrate && navigator.vibrate([200, 60, 400]); } catch (e) {}
+  const app = document.querySelector(".app");
+  if (!RM) app.classList.add("crash");
+  if (c.text) addLog(c.text, "scare");
+  await sleep(700);
+  app.classList.remove("crash");
+  if (c.sev !== "minor") {
+    // Stay dark until the ending screen takes over (finish lifts it); after a decision the result is still to be read.
+    document.body.classList.add("blackout"); await sleep(RM ? 300 : 1800);
+    if (!keepDark) document.body.classList.remove("blackout");
+  }
+  hud(true);
+}
+
 /* ---------- decisions ---------- */
+// Decisions pop up over the drive screen; the windshield and log stay visible, dimmed, behind it.
 function openCard(){
-  $("drive").classList.add("deciding"); const c = $("card"); c.hidden = false;
-  c.scrollIntoView({ block: "start", behavior: RM ? "auto" : "smooth" });
+  const c = $("card"); $("backdrop").hidden = false; c.hidden = false; c.scrollTop = 0;
   return c;
 }
-function closeCard(){ $("drive").classList.remove("deciding"); $("card").hidden = true; scrollTo({ top: 0, behavior: RM ? "auto" : "smooth" }); }
+function closeCard(){ $("card").hidden = true; $("backdrop").hidden = true; }
 
 function showDecision(instant){
   const e = E.byId(S.cur), text = E.textOf(e, S);
@@ -349,6 +397,7 @@ async function choose(i){
   if (sc && sc.mode === "instant") await jumpScare(sc.ghost, scene, { buildup: "none" });
   else if (sc && sc.mode === "hush") await jumpScare(sc.ghost, scene);
   else if (sc && sc.mode === "fake") await fakeOut(scene);
+  if (S.res.crash) await crashMoment({ sev: S.res.crash }, false);
   choosing = false;
   showResult(false, sc && sc.mode === "mid" ? sc.ghost : null);
 }
@@ -359,6 +408,7 @@ function showResult(instant, midGhost){
   hud(true);
   const r = S.res, chips = [], sign = n => n > 0 ? "+" + n : "−" + Math.abs(n);
   if (r.twist) chips.push(`<span class="chip bad">ผลพลิก</span>`);
+  if (r.crash) chips.push(`<span class="chip bad">อุบัติเหตุ</span>`);
   if (r.ds) chips.push(`<span class="chip ${r.ds < 0 ? "bad" : "good"}">สติ ${sign(Math.round(r.ds))}</span>`);
   if (r.df) chips.push(`<span class="chip ${r.df < 0 ? "bad" : "good"}">น้ำมัน ${sign(Math.round(r.df))}</span>`);
   if (r.item) chips.push(`<span class="chip good">ได้: ${esc(r.item)}</span>`);
@@ -390,7 +440,7 @@ function driveOn(){
 
 /* ---------- endings ---------- */
 function finish(key){
-  stopLoop();
+  stopLoop(); document.body.classList.remove("blackout");
   S.phase = "end"; S.ending = key; store.addFound(key); store.saveGame(S);
   renderEnd();
 }

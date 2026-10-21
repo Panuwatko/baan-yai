@@ -168,3 +168,15 @@ export const TWISTS = {
     "คุณคิดว่าเลือกถูกแล้ว แต่อะไรบางอย่างกำลังรอให้คุณคิดแบบนั้น"
   ]
 };
+
+// Accidents. Minor ones go in the log and the drive goes on; the car keeps the damage.
+export const CRASH_MINOR = [
+  "รถเสียหลักไถลลงไหล่ทาง คุณบังคับกลับขึ้นถนนได้ ไฟหน้าข้างหนึ่งแตก",
+  "ล้อหน้ากระแทกขอบทางอย่างแรง พวงมาลัยสั่นไม่หยุด",
+  "รถหมุนกลางถนนครึ่งรอบก่อนหยุด ไม่มีใครเจ็บ แต่มือคุณสั่นจนจับพวงมาลัยแทบไม่อยู่",
+  "กระจกมองข้างฟาดกับหลักนำทางจนหลุดหายไป"
+];
+// Shown when a crash is bad enough to end the trip, just before the ending.
+export const CRASH_SEVERE = "เสียงยางเสียดถนนดังลั่น รถหมุนคว้าง แล้วทุกอย่างก็มืดไป";
+// A reckless choice ("เร่ง", "ฝ่า", "ชน" …) that ends in a crash, appended to its result.
+export const CRASH_RECKLESS = "แต่ความเร็วขนาดนั้นบนถนนแบบนี้ รถเสียหลักจนเกือบพลิกคว่ำ";

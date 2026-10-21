@@ -85,6 +85,18 @@ export function scream(type){
   [520, 553, 1107].forEach(f => saw(a, t, 1.1, f, f * 1.6, f * .7, .22, out));
 }
 
+// A crash: low thump, crunching noise and a short metallic scrape.
+export function crash(){
+  const a = ctx(); if (!a) return;
+  const t = a.currentTime, out = burst(a, t, .9, 1.2);
+  noise(a, t, 1.2, "lowpass", 900, .8, out);
+  saw(a, t + .05, .35, 1800, 2400, 700, .12, out);
+  const o = a.createOscillator(), g = a.createGain();
+  o.type = "sine"; o.frequency.setValueAtTime(90, t); o.frequency.exponentialRampToValueAtTime(35, t + .5);
+  g.gain.setValueAtTime(.9, t); g.gain.exponentialRampToValueAtTime(.001, t + .6);
+  o.connect(g); g.connect(a.destination); o.start(t); o.stop(t + .65);
+}
+
 // A slow creak used by fake-outs: something is there, then nothing happens.
 export function creak(){
   const a = ctx(); if (!a) return;

@@ -100,7 +100,11 @@ body.reading .hud{opacity:.3}
 
 /* Drive screen: windshield, time controls, driving options, the scrolling log, and the decision card */
 .drive{display:flex; flex-direction:column; gap:10px; flex:1}
-.timebar{display:flex; justify-content:space-between; align-items:center; gap:8px}
+.timebar{display:flex; align-items:center; gap:8px}
+.timebar #mult{flex:1}
+.drivesum{margin:-2px 0 0; font-size:12px; color:var(--dim)}
+#setup .controls{grid-template-columns:1fr}
+#setup h2{font-size:22px}
 .seg{display:flex; border:1px solid var(--line); border-radius:999px; overflow:hidden; background:var(--asphalt)}
 .seg button{flex:1; font:inherit; font-size:13px; color:var(--dim); background:none; border:0; padding:6px 10px; min-height:36px; cursor:pointer; touch-action:manipulation; font-family:var(--body)}
 .seg button.on{background:var(--lamp); color:var(--ink); font-weight:600}
@@ -112,7 +116,7 @@ body.reading .hud{opacity:.3}
 .paused span{flex:1 1 100%; color:var(--lamp)}
 .controls{display:grid; grid-template-columns:1fr 1fr; gap:8px 10px}
 .ctl{display:grid; gap:4px; min-width:0; font-size:12px; color:var(--dim)}
-.log{flex:1; min-height:160px; max-height:42vh; overflow-y:auto; display:flex; flex-direction:column; gap:7px;
+.log{height:clamp(220px, 46vh, 560px); overflow-y:auto; display:flex; flex-direction:column; gap:7px;
   padding:10px 12px; background:var(--asphalt); border:1px solid var(--line); border-radius:12px; font-size:15px; line-height:1.55}
 .ln{margin:0; display:grid; grid-template-columns:auto 1fr; gap:4px 10px; animation:rise .4s ease both}
 .ln time{font-family:var(--mono); font-size:12px; color:var(--dim); padding-top:2px}
@@ -124,12 +128,17 @@ body.reading .hud{opacity:.3}
 .ln.choice span{color:var(--fog)}
 .restbtn{grid-column:2; justify-self:start; font:inherit; font-size:13px; padding:4px 14px; min-height:32px; border:1px solid var(--lamp); color:var(--lamp); background:none; border-radius:999px; cursor:pointer}
 .restbtn:disabled{opacity:.3; cursor:default}
-.card{display:flex; flex-direction:column; gap:12px; padding:14px; border:1px solid var(--line); border-radius:12px; background:var(--asphalt)}
+.card{display:flex; flex-direction:column; gap:12px; padding:16px; border:1px solid var(--line); border-radius:14px; background:var(--asphalt)}
+/* The decision card is a pop-up over the drive screen */
+#card,#setup{position:fixed; z-index:80; left:50%; transform:translateX(-50%); width:min(520px, calc(100% - 2 * max(16px, env(safe-area-inset-left, 0px))));
+  bottom:max(16px, env(safe-area-inset-bottom, 0px)); max-height:min(78vh, calc(100% - 32px)); overflow-y:auto;
+  box-shadow:0 18px 60px rgba(0,0,0,.7); animation:popup .35s cubic-bezier(.2,.9,.3,1.1) both}
+@keyframes popup{from{opacity:0; transform:translate(-50%, 24px) scale(.97)}to{opacity:1; transform:translate(-50%, 0)}}
+.backdrop{position:fixed; inset:0; z-index:79; background:rgba(0,0,0,.6); animation:fadein .3s ease both}
+@keyframes fadein{from{opacity:0}to{opacity:1}}
 /* The text the player reads sits above the dark-edge veil; only the scenery gets darkened. */
 .log,.card{position:relative; z-index:60}
 .card .story{min-height:0}
-.drive.deciding .controls{display:none}
-.drive.deciding .log{flex:none; min-height:0; max-height:18vh}
 body.doze .shield,body.doze .log{filter:brightness(.06) blur(3px); transition:filter 1.4s ease-in}
 .album-title{font-family:var(--display); font-weight:400; font-size:20px; margin:16px 0 0}
 .album{display:grid; grid-template-columns:1fr 1fr; gap:12px}
@@ -139,11 +148,16 @@ body.doze .shield,body.doze .log{filter:brightness(.06) blur(3px); transition:fi
 .album b{color:var(--fog); font-size:13px; font-weight:600}
 .album time{font-family:var(--mono)}
 
+/* Crash: a hard shake, and a blackout for one that ends the trip */
+.app.crash{animation:crash .7s cubic-bezier(.3,.9,.4,1)}
+@keyframes crash{0%{transform:none}10%{transform:translate(-14px,8px) rotate(-1.5deg)}25%{transform:translate(12px,-10px) rotate(1.2deg)}45%{transform:translate(-8px,6px) rotate(-.6deg)}70%{transform:translate(4px,-2px)}100%{transform:none}}
+body.blackout .app{filter:brightness(0); transition:filter 1.6s ease-in}
+
 /* Jump scare */
 .scare{position:fixed; inset:0; z-index:100; background:#000}
 .scare canvas{display:block; width:100%; height:100%}
 .scare.shake{animation:shake .12s linear infinite}
 @keyframes shake{0%{transform:translate(0,0) scale(1.04)}25%{transform:translate(-10px,6px) scale(1.06)}50%{transform:translate(8px,-8px) scale(1.04)}75%{transform:translate(-6px,-4px) scale(1.07)}100%{transform:translate(0,0) scale(1.04)}}
 
-@media (prefers-reduced-motion:reduce){.choices.fade,.ambush,.ln{animation:none}body.doze .shield,body.doze .log{transition:none}.car,.bar i,.scene,.hud,.shield canvas,.shield.focus canvas{transition:none}}
+@media (prefers-reduced-motion:reduce){.choices.fade,.ambush,.ln,.app.crash,#card,.backdrop{animation:none}body.doze .shield,body.doze .log{transition:none}.car,.bar i,.scene,.hud,.shield canvas,.shield.focus canvas{transition:none}}
 @media (max-width:380px){h1{font-size:36px}.stats{grid-template-columns:1fr}}
