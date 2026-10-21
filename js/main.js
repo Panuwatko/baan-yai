@@ -7,6 +7,7 @@ import * as E from "./engine.js";
 import * as store from "./storage.js";
 import * as sfx from "./audio.js";
 import { jumpScare, fakeOut, preloadMedia, clearScare } from "./scare.js";
+import { makeCard } from "./sharecard.js";
 
 const $ = id => document.getElementById(id);
 const scene = $("scene");
@@ -299,7 +300,7 @@ async function handle(h){
   if (h.type === "log") addLog(h.text, h.kind);
   else if (h.type === "decision") showDecision(false);
   else if (h.type === "ambush") {
-    if (prefs.jump) await jumpScare(h.a.ghost, scene, { buildup: "none" }); else await sleep(300);
+    if (prefs.jump) await boo(h.a.ghost, { buildup: "none" }); else await sleep(300);
     addLog(h.a.text + (h.a.ds ? `  (สติ −${Math.abs(h.a.ds)})` : ""), "scare");
     if (h.crash) await crashMoment(h.crash);
     store.saveGame(S);
@@ -318,7 +319,7 @@ async function lookMoment(){
   addLog(info.text, "omen");
   document.body.classList.add("reading");
   await sleep(L.wait);
-  if (L.hit && prefs.jump) await jumpScare(L.ghost, scene, { buildup: Math.random() < .5 ? "none" : "hush" });
+  if (L.hit && prefs.jump) await boo(L.ghost, { buildup: Math.random() < .5 ? "none" : "hush" });
   else await sleep(500);
   const r = E.finishLook(S);
   addLog((r.hit ? info.hit : info.miss) + (r.ds ? `  (สติ −${Math.abs(r.ds)})` : ""), r.hit ? "scare" : "thought");
@@ -347,7 +348,7 @@ async function takeRest(){
   if (choosing) return;
   choosing = true;
   const r = E.takeRest(S);
-  if (r.ghost && prefs.jump) await jumpScare(r.ghost, scene);
+  if (r.ghost && prefs.jump) await boo(r.ghost);
   choosing = false;
   const chips = [];
   if (r.twisted) chips.push(`<span class="chip bad">ผลพลิก</span>`);
@@ -374,7 +375,7 @@ async function dozeMoment(h){
   document.body.classList.add("doze");
   await sleep(RM ? 300 : 1600);
   document.body.classList.remove("doze");
-  if (h.ghost && prefs.jump) await jumpScare(h.ghost, scene, { buildup: "none" });
+  if (h.ghost && prefs.jump) await boo(h.ghost, { buildup: "none" });
   addLog(h.text + `  (สติ −${Math.abs(h.ds)})`, h.ghost ? "scare" : "warn");
   if (h.crash) await crashMoment(h.crash);
   store.saveGame(S);
@@ -427,21 +428,24 @@ function showDecision(instant){
   if (instant) { $("story").textContent = text; show(); } else type($("story"), text, show);
 }
 
+// Every jump scare goes through here so the trip can count the ghosts it met.
+const boo = (ghost, opts) => { if (S) S.seenGhosts++; return jumpScare(ghost, scene, opts); };
+
 let choosing = false;
 async function choose(i){
   if (choosing) return;
   choosing = true;
   const sc = E.choose(S, i, prefs.jump);
   store.saveGame(S);
-  if (sc && sc.mode === "instant") await jumpScare(sc.ghost, scene, { buildup: "none" });
-  else if (sc && sc.mode === "hush") await jumpScare(sc.ghost, scene);
+  if (sc && sc.mode === "instant") await boo(sc.ghost, { buildup: "none" });
+  else if (sc && sc.mode === "hush") await boo(sc.ghost);
   else if (sc && sc.mode === "fake") await fakeOut(scene);
   if (S.res.crash) await crashMoment({ sev: S.res.crash }, false);
   choosing = false;
   showResult(false, sc && sc.mode === "mid" ? sc.ghost : null);
 }
 
-const midHook = ghost => ({ at: .25 + Math.random() * .45, run: () => jumpScare(ghost, scene, { buildup: "none" }) });
+const midHook = ghost => ({ at: .25 + Math.random() * .45, run: () => boo(ghost, { buildup: "none" }) });
 
 function showResult(instant, midGhost){
   hud(true);
@@ -493,20 +497,46 @@ function renderEnd(){
     <p class="story" id="story"></p>
     <p class="endcount">ฉากจบที่เจอแล้ว ${f} / ${ENDING_KEYS.length}</p>
     <div class="choices" id="choices"></div>
+    <div class="sharebox" id="sharebox" hidden></div>
     ${album.length ? `<h3 class="album-title">อัลบั้มการเดินทาง</h3>
     <div class="album">${album.map(a => `
       <figure>${a.img ? `<img src="${a.img}" alt="">` : ""}
         <figcaption><b>${esc(a.title)}</b><span>${esc(a.choice)}${a.twist ? " · ผลพลิก" : ""}</span><time>${esc(a.clock)} · กม. ${a.km}</time></figcaption>
       </figure>`).join("")}</div>` : ""}`;
-  const show = () => choicesBox(
-    `<button class="btn primary" id="again">เล่นอีกรอบ</button><button class="btn quiet" id="gallery">ดูฉากจบทั้งหมด</button>`,
-    () => {
-      $("again").onclick = () => { store.clearGame(); showStart(); };
-      $("gallery").onclick = showGallery;
-    });
+  const show = () => {
+    choicesBox(
+      `<button class="btn primary" id="again">เล่นอีกรอบ</button><button class="btn quiet" id="gallery">ดูฉากจบทั้งหมด</button>`,
+      () => {
+        $("again").onclick = () => { store.clearGame(); showStart(); };
+        $("gallery").onclick = showGallery;
+      });
+    showShareCard(en, f);
+  };
   // Ending scares land on the last line, while the player is still reading.
-  const hook = en.scare && prefs.jump ? { at: .92, run: () => jumpScare(en.ghost, scene, { buildup: "none" }) } : null;
+  const hook = en.scare && prefs.jump ? { at: .92, run: () => boo(en.ghost, { buildup: "none" }) } : null;
   type($("story"), en.text, show, hook);
+}
+
+// The trip summary card: an image to share (the phone's share sheet) or save.
+async function showShareCard(en, found){
+  const box = $("sharebox"); if (!box) return;
+  box.hidden = false; box.innerHTML = `<p class="tap">กำลังทำการ์ดสรุปการเดินทาง…</p>`;
+  let blob;
+  try { blob = await makeCard(S, en, [found, ENDING_KEYS.length]); } catch (e) { console.error(e); box.hidden = true; return; }
+  if (!blob || !$("sharebox")) return;
+  const url = URL.createObjectURL(blob), file = new File([blob], "baan-yai.png", { type: "image/png" });
+  const canShare = !!(navigator.canShare && navigator.canShare({ files: [file] }));
+  box.innerHTML = `
+    <h3 class="album-title">การ์ดสรุปการเดินทาง</h3>
+    <img class="sharecard" src="${url}" alt="การ์ดสรุป: ${esc(en.title)}, ${Math.floor(S.km)} กม.">
+    <div class="sharerow">
+      ${canShare ? `<button class="btn primary" id="shareCard">แชร์การ์ด</button>` : ""}
+      <a class="btn ${canShare ? "quiet" : "primary"}" id="saveCard" href="${url}" download="baan-yai.png">บันทึกรูป</a>
+    </div>`;
+  if (canShare) $("shareCard").onclick = async () => {
+    try { await navigator.share({ files: [file], title: "ทางกลับบ้านยาย", text: `ฉันได้ฉากจบ “${en.title}” คุณจะไปถึงบ้านยายไหม?` }); }
+    catch (e) { /* cancelled, or the share sheet failed: the save button is right there */ }
+  };
 }
 
 /* ---------- boot ---------- */

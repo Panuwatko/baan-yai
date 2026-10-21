@@ -28,7 +28,8 @@ export function fresh(){
            speed: "normal", lights: "low", radio: "off", win: "closed", mult: 1,
            drowsy: 0, logT: 0, nextKm: between(18, 28), nextRest: between(40, 70), restOffer: null,
            warnedFuel: false, warnedLate: false, log: [], crash: null, damage: 0,
-           scene: { setting: "road", weather: "clear" }, thread: null, threadsUsed: [], echoed: [], seen: [] };
+           scene: { setting: "road", weather: "clear" }, thread: null, threadsUsed: [], echoed: [], seen: [],
+           seenGhosts: 0, twists: 0, rests: 0 };   // trip stats for the share card
 }
 
 export const byId = id => EVENTS.find(e => e.id === id);
@@ -196,7 +197,7 @@ export function leaveRest(S){ S.restOffer = null; S.phase = "drive"; }
 // Pulling in at the stop. Any stop can turn out not to be what it looked like.
 export function takeRest(S){
   const R = L.RESTS[S.restOffer.i], before = { san: S.san, fuel: S.fuel };
-  S.restOffer = null;
+  S.restOffer = null; S.rests++;
   const twisted = Math.random() < twistChance(S);
   S.min += R.t; S.drowsy = R.rest ? 0 : S.drowsy;
   if (R.fuel) S.fuel = clamp(R.fuelAdd ? S.fuel + R.fuel : Math.max(S.fuel, R.fuel));
@@ -279,7 +280,7 @@ export function choose(S, i, jumpOn){
   if (crash) { S.res.crash = crash.sev; S.res.text += " " + L.CRASH_RECKLESS + (crash.sev === "minor" ? "" : " แล้วทุกอย่างก็มืดไป"); S.res.ds = S.san - before.san; }
   S.phase = "result";
   updateDread(S, c, o);
-  if (tw) S.dread = clamp(S.dread + 10);
+  if (tw) { S.dread = clamp(S.dread + 10); S.twists++; }
   if (!jumpOn) return null;
   if ((o.scare || (o.sc && Math.random() < o.sc)) && S.scares < MAX_SCARES) {
     S.scares++;

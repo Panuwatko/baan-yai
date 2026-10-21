@@ -151,6 +151,10 @@ body.flicker:not(.hushing):not(.doze):not(.blackout) .shade{display:block; opaci
 .backdrop{position:fixed; inset:0; z-index:79; background:rgba(0,0,0,.6); animation:fadein .3s ease both}
 @keyframes fadein{from{opacity:0}to{opacity:1}}
 .card .story{min-height:0}
+.sharebox{display:grid; gap:12px}
+.sharecard{width:100%; height:auto; border-radius:12px; border:1px solid var(--line); display:block}
+.sharerow{display:grid; grid-template-columns:repeat(auto-fit, minmax(140px, 1fr)); gap:10px}
+.sharerow .btn{justify-content:center; text-decoration:none}
 .album-title{font-family:var(--display); font-weight:400; font-size:20px; margin:16px 0 0}
 .album{display:grid; grid-template-columns:1fr 1fr; gap:12px}
 .album figure{margin:0; display:grid; gap:6px; min-width:0}
