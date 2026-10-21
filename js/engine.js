@@ -12,8 +12,9 @@ export const TOTAL_KM = 420, STEP_KM = 35;
 // Game minutes per real second at x1. A normal-speed trip is ~280 game minutes, so ~30 real minutes at x1.
 export const BASE_RATE = .16, MULTS = [1, 2, 4, 8];
 // kmh sets the pace; fuel is % of the tank per km; risk scales surprise scares.
-export const SPEEDS = { slow: { kmh: 60, fuel: .12, risk: .7 }, normal: { kmh: 90, fuel: .15, risk: 1 }, fast: { kmh: 120, fuel: .21, risk: 1.5 } };
-const LOG_EVERY = 1.6;              // game minutes between log lines
+// Fast takes about half the real time of normal, at a real cost in fuel and crash risk.
+export const SPEEDS = { slow: { kmh: 60, fuel: .12, risk: .7 }, normal: { kmh: 90, fuel: .15, risk: 1 }, fast: { kmh: 165, fuel: .22, risk: 1.7 } };
+const LOG_EVERY = 1.6;              // game minutes between log lines (~10 s at x1)
 const MAX_SCARES = 4, MAX_AMBUSH = 3, MAX_LOOKS = 4, MAX_FAKES = 3, FAKE_CHANCE = .2, LOOK_SANITY = -6;
 const clamp = v => Math.max(0, Math.min(100, v));
 const pick = a => a[Math.random() * a.length | 0];

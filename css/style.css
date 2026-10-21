@@ -128,22 +128,25 @@ body.flicker:not(.hushing):not(.doze):not(.blackout) .shade{display:block; opaci
 .paused span{flex:1 1 100%; color:var(--lamp)}
 .controls{display:grid; grid-template-columns:1fr 1fr; gap:8px 10px}
 .ctl{display:grid; gap:4px; min-width:0; font-size:12px; color:var(--dim)}
-.log{height:clamp(220px, 46vh, 560px); overflow-y:auto; overscroll-behavior:contain;
-  padding:10px 12px; background:var(--asphalt); border:1px solid var(--line); border-radius:12px; font-size:15px; line-height:1.55;
-  transform:translateZ(0)}
+.log{height:clamp(220px, 46vh, 560px); overflow:hidden;
+  padding:10px 12px; background:var(--asphalt); border:1px solid var(--line); border-radius:12px; font-size:15px; line-height:1.55}
+.sumrow{display:flex; align-items:baseline; justify-content:space-between; gap:10px; margin-top:-2px}
+.sumrow .drivesum{margin:0; min-width:0}
+.linkbtn{flex:none; font:inherit; font-size:12px; color:var(--dim); background:none; border:0; padding:4px 2px; text-decoration:underline; text-underline-offset:3px; cursor:pointer}
+.history{overflow-y:auto; max-height:52vh; font-size:14px; line-height:1.55}
 .ln{margin:0 0 7px; display:grid; grid-template-columns:auto 1fr; gap:4px 10px}
 .ln time{font-family:var(--mono); font-size:12px; color:var(--dim); padding-top:2px}
 .ln span{min-width:0}
-.ln.event span{color:var(--lamp); font-weight:600}
-.ln.scare span{color:var(--blood)}
-.ln.warn span{color:var(--lamp)}
-.ln.setting span,.ln.thought span,.ln.radio span{color:var(--dim)}
-.ln.choice span{color:var(--fog)}
+.ln.k-event span{color:var(--lamp); font-weight:600}
+.ln.k-scare span{color:var(--blood)}
+.ln.k-warn span{color:var(--lamp)}
+.ln.k-setting span,.ln.k-thought span,.ln.k-radio span{color:var(--dim)}
+.ln.k-choice span{color:var(--fog)}
 .restbtn{grid-column:2; justify-self:start; font:inherit; font-size:13px; padding:4px 14px; min-height:32px; border:1px solid var(--lamp); color:var(--lamp); background:none; border-radius:999px; cursor:pointer}
 .restbtn:disabled{opacity:.3; cursor:default}
 .card{display:flex; flex-direction:column; gap:12px; padding:16px; border:1px solid var(--line); border-radius:14px; background:var(--asphalt)}
 /* The decision card is a pop-up over the drive screen */
-#card,#setup{position:fixed; z-index:80; left:50%; transform:translateX(-50%); width:min(520px, calc(100% - 2 * max(16px, env(safe-area-inset-left, 0px))));
+#card,#setup,#history{position:fixed; z-index:80; left:50%; transform:translateX(-50%); width:min(520px, calc(100% - 2 * max(16px, env(safe-area-inset-left, 0px))));
   bottom:max(16px, env(safe-area-inset-bottom, 0px)); max-height:min(78vh, calc(100% - 32px)); overflow-y:auto;
   box-shadow:0 18px 60px rgba(0,0,0,.7); animation:popup .35s cubic-bezier(.2,.9,.3,1.1) both}
 @keyframes popup{from{opacity:0; transform:translate(-50%, 24px) scale(.97)}to{opacity:1; transform:translate(-50%, 0)}}

@@ -13,7 +13,8 @@ const scene = $("scene");
 const RM = matchMedia("(prefers-reduced-motion: reduce)").matches;
 const esc = t => String(t).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 const sleep = ms => new Promise(r => setTimeout(r, ms));
-const TICK_MS = 200, SAVE_MS = 4000, LOG_KEEP = 60;
+// LOG_SHOWN lines stay on the drive screen; LOG_KEEP are saved for the history pop-up.
+const TICK_MS = 200, SAVE_MS = 4000, LOG_KEEP = 120, LOG_SHOWN = 14;
 let S = null, prefs = store.loadPrefs(), busy = false, paused = false, ws = null, timer = null, lastTick = 0, savedAt = 0;
 
 /* ---------- typewriter ----------
@@ -186,7 +187,7 @@ function renderDrive(){
         <button class="pill" id="setupBtn">ปรับการขับ</button>
         <button class="pill" id="pauseBtn">จอดพัก</button>
       </div>
-      <p class="drivesum" id="drivesum"></p>
+      <div class="sumrow"><p class="drivesum" id="drivesum"></p><button class="linkbtn" id="historyBtn">ดูบันทึกย้อนหลัง</button></div>
       <div class="paused" id="paused" hidden>
         <span>จอดพักข้างทาง เวลาหยุดเดิน</span>
         <button class="pill on" id="goOn">ขับต่อ</button>
@@ -194,6 +195,12 @@ function renderDrive(){
       </div>
       <div class="log" id="log" aria-live="polite"></div>
       <div class="backdrop" id="backdrop" hidden></div>
+      <div class="card sheet" id="history" role="dialog" aria-modal="true" aria-label="บันทึกการเดินทาง" hidden>
+        <h2>บันทึกการเดินทาง</h2>
+        <p class="tap">เวลาหยุดเดินระหว่างอ่าน</p>
+        <div class="history" id="historyList"></div>
+        <button class="btn primary" id="historyDone">ขับต่อ</button>
+      </div>
       <div class="card" id="card" role="dialog" aria-modal="true" hidden></div>
       <div class="card sheet" id="setup" role="dialog" aria-modal="true" aria-label="ปรับการขับ" hidden>
         <h2>ปรับการขับ</h2>
@@ -205,8 +212,7 @@ function renderDrive(){
       </div>
     </div>`;
   mountShield();
-  for (const line of S.log) appendLine(line);
-  $("log").scrollTop = 0;
+  for (const line of S.log.slice(-LOG_SHOWN)) appendLine(line);
   for (const g of document.querySelectorAll(".seg[data-key]"))
     g.onclick = e => { const b = e.target.closest("button"); if (!b || S[g.dataset.key] === b.dataset.v) return;
                        addLog(E.setOption(S, g.dataset.key, b.dataset.v), "setting"); refreshControls(); store.saveGame(S); };
@@ -214,7 +220,9 @@ function renderDrive(){
   $("pauseBtn").onclick = () => setPaused(true);
   $("setupBtn").onclick = () => openSetup(true);
   $("setupDone").onclick = () => openSetup(false);
-  $("backdrop").onclick = () => { if (!$("setup").hidden) openSetup(false); };
+  $("historyBtn").onclick = () => openHistory(true);
+  $("historyDone").onclick = () => openHistory(false);
+  $("backdrop").onclick = () => { if (!$("setup").hidden) openSetup(false); if (!$("history").hidden) openHistory(false); };
   $("goOn").onclick = () => setPaused(false);
   $("home").onclick = () => { store.saveGame(S); paused = false; showStart(); };
   refreshControls();
@@ -236,6 +244,12 @@ function openSetup(on){
   setupOpen = on; $("setup").hidden = !on; $("backdrop").hidden = !on && $("card").hidden;
   if (!on) store.saveGame(S);
 }
+// The full log, newest first, in a pop-up. It is built only when opened and emptied when closed.
+function openHistory(on){
+  setupOpen = on; $("history").hidden = !on; $("backdrop").hidden = !on && $("card").hidden;
+  $("historyList").innerHTML = on ? S.log.slice().reverse().map(l =>
+    `<p class="ln k-${l.kind || "road"}"><time>${hhmm(l.t)}</time><span>${esc(l.text)}</span></p>`).join("") : "";
+}
 function setPaused(on){
   paused = on; $("paused").hidden = !on; $("pauseBtn").hidden = on;
   if (on) store.saveGame(S);
@@ -243,16 +257,16 @@ function setPaused(on){
 
 /* ---------- the log ---------- */
 // Newest line goes on top and pushes older ones down; the oldest fall off the bottom.
+// Only the latest lines are kept on screen; the full log is in the history pop-up.
 function appendLine(line, extra){
   const el = $("log"); if (!el) return;
-  const atTop = el.scrollTop < 60;
   const p = document.createElement("p");
-  p.className = "ln " + (line.kind || "road");
+  // Kinds are prefixed: a bare "scare" class would pick up the full-screen jump-scare styles.
+  p.className = "ln k-" + (line.kind || "road");
   p.innerHTML = `<time>${hhmm(line.t)}</time><span>${esc(line.text)}</span>`;
   if (extra) p.appendChild(extra);
   el.prepend(p);
-  while (el.children.length > LOG_KEEP) el.lastChild.remove();
-  if (atTop) el.scrollTop = 0;
+  while (el.children.length > LOG_SHOWN) el.lastChild.remove();
 }
 function addLog(text, kind, extra){
   const line = { t: S.min, kind, text };
