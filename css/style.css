@@ -120,7 +120,7 @@ body.flicker:not(.hushing):not(.doze):not(.blackout) .shade{display:block; opaci
 .seg{display:flex; border:1px solid var(--line); border-radius:999px; overflow:hidden; background:var(--asphalt)}
 .seg button{flex:1; font:inherit; font-size:13px; color:var(--dim); background:none; border:0; padding:6px 10px; min-height:36px; cursor:pointer; touch-action:manipulation; font-family:var(--body)}
 .seg button.on{background:var(--lamp); color:var(--ink); font-weight:600}
-.seg button:focus-visible,.pill:focus-visible,.restbtn:focus-visible{outline:2px solid var(--lamp); outline-offset:-2px}
+.seg button:focus-visible,.pill:focus-visible{outline:2px solid var(--lamp); outline-offset:-2px}
 #mult button{font-family:var(--mono); min-width:44px}
 .pill{font:inherit; font-size:13px; color:var(--fog); background:var(--asphalt); border:1px solid var(--line); border-radius:999px; padding:6px 14px; min-height:36px; cursor:pointer}
 .pill.on{background:var(--lamp); color:var(--ink); border-color:var(--lamp); font-weight:600}
@@ -142,8 +142,6 @@ body.flicker:not(.hushing):not(.doze):not(.blackout) .shade{display:block; opaci
 .ln.k-warn span{color:var(--lamp)}
 .ln.k-setting span,.ln.k-thought span,.ln.k-radio span{color:var(--dim)}
 .ln.k-choice span{color:var(--fog)}
-.restbtn{grid-column:2; justify-self:start; font:inherit; font-size:13px; padding:4px 14px; min-height:32px; border:1px solid var(--lamp); color:var(--lamp); background:none; border-radius:999px; cursor:pointer}
-.restbtn:disabled{opacity:.3; cursor:default}
 .card{display:flex; flex-direction:column; gap:12px; padding:16px; border:1px solid var(--line); border-radius:14px; background:var(--asphalt)}
 /* The decision card is a pop-up over the drive screen */
 #card,#setup,#history{position:fixed; z-index:80; left:50%; transform:translateX(-50%); width:min(520px, calc(100% - 2 * max(16px, env(safe-area-inset-left, 0px))));

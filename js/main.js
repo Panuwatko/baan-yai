@@ -6,7 +6,7 @@ import { Windshield, viewFor, FOCUS } from "./windshield.js";
 import * as E from "./engine.js";
 import * as store from "./storage.js";
 import * as sfx from "./audio.js";
-import { jumpScare, fakeOut, preloadMedia } from "./scare.js";
+import { jumpScare, fakeOut, preloadMedia, clearScare } from "./scare.js";
 
 const $ = id => document.getElementById(id);
 const scene = $("scene");
@@ -228,6 +228,7 @@ function renderDrive(){
   refreshControls();
   paused = false; busy = false;
   if (S.phase === "event") { busy = true; showDecision(true); }
+  else if (S.phase === "rest") { busy = true; showRest(); }
   else if (S.phase === "result") { busy = true; showResult(true); }
   startLoop();
 }
@@ -282,11 +283,14 @@ async function tick(){
   const now = performance.now(), dt = Math.min(1, (now - lastTick) / 1000);
   lastTick = now;
   if (busy || paused || setupOpen || document.hidden || !S || S.phase !== "drive") return;
+  // Nothing is playing right now, so no dark layer should be up. Clear any that got stuck
+  // (except the blackout of a fatal crash, which the ending is about to replace).
+  if (!S.crash) clearScare();
+  if ($("card").hidden && $("setup").hidden && $("history").hidden) $("backdrop").hidden = true;
   busy = true;
   try { for (const h of E.drive(S, dt * E.BASE_RATE * S.mult)) await handle(h); }
   catch (err) { console.error(err); }   // a broken effect must not freeze the drive
   finally { if (S.phase === "drive") busy = false; }
-  for (const b of document.querySelectorAll(".restbtn")) b.disabled = !S.restOffer;
   if (S.phase !== "end") hud(true);
   if (now - savedAt > SAVE_MS && S.phase !== "end") { savedAt = now; store.saveGame(S); }
 }
@@ -301,7 +305,7 @@ async function handle(h){
     store.saveGame(S);
   }
   else if (h.type === "look") await lookMoment();
-  else if (h.type === "rest") offerRest(h.text);
+  else if (h.type === "rest") showRest();
   else if (h.type === "doze") await dozeMoment(h);
   else if (h.type === "end") finish(h.key);
 }
@@ -323,26 +327,47 @@ async function lookMoment(){
   store.saveGame(S);
 }
 
-function offerRest(text){
-  const b = document.createElement("button");
-  b.className = "restbtn"; b.textContent = "แวะพัก";
-  b.onclick = () => takeRest(b);
-  addLog(text, "rest", b);
+// A rest stop pops up like an event; the drive holds until the player pulls in or drives past.
+function showRest(){
+  const line = E.restLine(S);
+  addLog(line, "event");
+  const card = openCard();
+  card.innerHTML = `
+    <p class="eyebrow">กม. ${Math.floor(S.km)} · ${clock(S.min)}</p>
+    <h2>จุดแวะพัก</h2>
+    <p class="story">${esc(line)}</p>
+    <p class="tap">น้ำมัน ${Math.round(S.fuel)} · สติ ${Math.round(S.san)}</p>
+    <div class="choices" id="choices"></div>`;
+  choicesBox(`<button class="btn" id="restStop"><span>แวะพัก</span></button><button class="btn" id="restPass"><span>ขับผ่านไป</span></button>`, () => {
+    $("restStop").onclick = () => takeRest();
+    $("restPass").onclick = () => { addLog("คุณขับผ่านไป ไม่แวะ", "setting"); E.leaveRest(S); closeCard(); store.saveGame(S); busy = false; };
+  });
 }
-async function takeRest(btn){
-  if (!S.restOffer || S.phase !== "drive") { btn.disabled = true; return; }
-  // Wait out any tick in progress, then hold the clock while the stop plays out.
-  while (busy) await sleep(50);
-  if (!S.restOffer) { btn.disabled = true; return; }
-  busy = true; btn.remove();
+async function takeRest(){
+  if (choosing) return;
+  choosing = true;
   const r = E.takeRest(S);
-  addLog("คุณเลี้ยวรถเข้าไปจอด", "setting");
-  await sleep(RM ? 0 : 900);
   if (r.ghost && prefs.jump) await jumpScare(r.ghost, scene);
-  const bits = [r.ds ? `สติ ${r.ds > 0 ? "+" : "−"}${Math.abs(r.ds)}` : "", r.df ? `น้ำมัน +${r.df}` : ""].filter(Boolean).join(", ");
-  addLog(r.text + (bits ? `  (${bits})` : ""), r.twisted ? "scare" : "thought");
-  hud(true); store.saveGame(S);
-  busy = false;
+  choosing = false;
+  const chips = [];
+  if (r.twisted) chips.push(`<span class="chip bad">ผลพลิก</span>`);
+  if (r.ds) chips.push(`<span class="chip ${r.ds < 0 ? "bad" : "good"}">สติ ${r.ds > 0 ? "+" : "−"}${Math.abs(Math.round(r.ds))}</span>`);
+  if (r.df) chips.push(`<span class="chip good">น้ำมัน +${Math.round(r.df)}</span>`);
+  const card = openCard();
+  card.innerHTML = `
+    <p class="eyebrow">จุดแวะพัก · ${clock(S.min)}</p>
+    <p class="picked">คุณเลี้ยวรถเข้าไปจอด</p>
+    <p class="story" id="story"></p>
+    <div class="deltas" id="deltas" hidden>${chips.join("")}</div>
+    <div class="choices" id="choices"></div>`;
+  hud(true);
+  type($("story"), r.text, () => {
+    $("deltas").hidden = false;
+    choicesBox(`<button class="btn primary" id="next">ขับต่อ</button>`, () => $("next").onclick = () => {
+      addLog(r.text, r.twisted ? "scare" : "thought");
+      E.leaveRest(S); closeCard(); hud(true); store.saveGame(S); busy = false;
+    });
+  });
 }
 
 async function dozeMoment(h){
@@ -487,5 +512,15 @@ function renderEnd(){
 /* ---------- boot ---------- */
 showStart();
 if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
+  // When a new version's service worker takes over (it skips waiting), reload once so the page runs
+  // the new code instead of a mix of old and new. Not on the very first install.
+  const hadController = !!navigator.serviceWorker.controller;
+  let reloading = false;
+  navigator.serviceWorker.addEventListener("controllerchange", () => {
+    if (!hadController || reloading) return;
+    reloading = true;
+    if (S && S.phase !== "end") store.saveGame(S);
+    location.reload();
+  });
   navigator.serviceWorker.register("sw.js").catch(() => {});
 }

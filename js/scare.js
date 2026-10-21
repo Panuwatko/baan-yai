@@ -105,6 +105,12 @@ export async function jumpScare(type, scene, { buildup = "hush" } = {}){
   document.body.classList.remove("hushing"); quiet(false);
 }
 
+// Takes down every dark layer this module can put up. Used as a safety net when nothing is playing.
+export function clearScare(){
+  if (overlay) { overlay.hidden = true; overlay.classList.remove("shake"); }
+  document.body.classList.remove("hushing", "doze", "blackout");
+}
+
 // Looks exactly like a hush build-up, but nothing comes. Keeps players from reading the pattern.
 export async function fakeOut(scene){
   document.body.classList.add("hushing"); quiet(true);

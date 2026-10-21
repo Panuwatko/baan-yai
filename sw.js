@@ -1,6 +1,6 @@
 // Service worker for ทางกลับบ้านยาย (baan-yai).
 // Bump CACHE on every deploy so installed phones fetch the new version.
-const CACHE = "baanyai-v8";
+const CACHE = "baanyai-v9";
 const FONT_CACHE = "baanyai-fonts";
 
 // Every app file, relative to this script so it works under any sub-path.
@@ -82,14 +82,29 @@ self.addEventListener("fetch", (event) => {
   // Other cross-origin requests go straight to the network.
   if (url.origin !== self.location.origin) return;
 
-  // Same-origin: cache first, then network. Offline navigations fall back to the app shell.
+  // Code and pages: network first so a new version shows up right away; the cache is the offline
+  // fallback. Photos and icons never change under the same name, so they come from the cache first.
+  const isAsset = /\/(media|icons)\//.test(url.pathname);
   event.respondWith(
-    cacheFirst(req).catch(() => {
+    (isAsset ? cacheFirst(req) : networkFirst(req)).catch(() => {
       if (req.mode === "navigate") return caches.match("./index.html");
       return Response.error();
     })
   );
 });
+
+async function networkFirst(req) {
+  const cache = await caches.open(CACHE);
+  try {
+    const res = await fetch(req, { cache: "no-cache" });
+    if (res.ok) cache.put(req, res.clone());
+    return res;
+  } catch (e) {
+    const hit = await cache.match(req);
+    if (hit) return hit;
+    throw e;
+  }
+}
 
 async function cacheFirst(req) {
   const cache = await caches.open(CACHE);

@@ -28,7 +28,7 @@ export function fresh(){
            speed: "normal", lights: "low", radio: "off", win: "closed", mult: 1,
            drowsy: 0, logT: 0, nextKm: between(18, 28), nextRest: between(40, 70), restOffer: null,
            warnedFuel: false, warnedLate: false, log: [], crash: null, damage: 0,
-           scene: { setting: "road", weather: "clear" }, thread: null, threadsUsed: [], echoed: [], recent: [] };
+           scene: { setting: "road", weather: "clear" }, thread: null, threadsUsed: [], echoed: [], seen: [] };
 }
 
 export const byId = id => EVENTS.find(e => e.id === id);
@@ -41,12 +41,11 @@ export const textOf = (e, S) => typeof e.text === "function" ? e.text(S) : e.tex
 // current scenery, weather, the hour, settings, radio, thoughts and plain road.
 function logLine(S){
   const fill = t => t.replace("{km}", Math.floor(S.km)).replace("{town}", pick(L.TOWNS)).replace("{n}", 3 + (Math.random() * 40 | 0));
-  // Avoid lines shown recently: a few retries, then accept a repeat.
+  // No line is shown twice in one trip; a pool that has run dry yields null and the next pool is used.
   const fresh = pool => {
-    let t = pick(pool);
-    for (let i = 0; i < 4 && S.recent.includes(t); i++) t = pick(pool);
-    S.recent.push(t); if (S.recent.length > 40) S.recent.shift();
-    return t;
+    const left = pool.filter(t => !S.seen.includes(t));
+    if (!left.length) return null;
+    const t = pick(left); S.seen.push(t); return t;
   };
   const th = S.thread;
   if (th && S.min >= th.next) {
@@ -72,7 +71,7 @@ function logLine(S){
   const pools = [
     [S.flags.passenger ? .15 : 0, L.PASSENGER, "omen"],
     [omen, S.dread > 45 ? L.OMEN_HIGH : L.OMEN_LOW, "omen"],
-    [S.drowsy > 60 ? .25 : 0, L.DROWSY, "drowsy"],
+    [S.drowsy > 60 ? .12 : 0, L.DROWSY, "drowsy"],
     [.2, L.SCENE[sc.setting], "road"],
     [sc.weather !== "clear" ? .12 : 0, L.WEATHER[sc.weather], "road"],
     [.06, hour.lines, "thought"],
@@ -82,8 +81,13 @@ function logLine(S){
     [.14, L.THOUGHT, "thought"]
   ];
   let x = Math.random();
-  for (const [w, pool, kind] of pools) { if (pool && pool.length && (x -= w) < 0) return { kind, text: fill(fresh(pool)) }; }
-  return { kind: "road", text: fill(fresh(L.ROAD)) };
+  for (const [w, pool, kind] of pools) {
+    if (pool && pool.length && (x -= w) < 0) { const t = fresh(pool); if (t) return { kind, text: fill(t) }; }
+  }
+  for (const [pool, kind] of [[L.ROAD, "road"], [L.SCENE[sc.setting], "road"], [L.THOUGHT, "thought"]]) {
+    const t = fresh(pool); if (t) return { kind, text: fill(t) };
+  }
+  return null;   // everything has been said; stay quiet rather than repeat
 }
 
 function pickLook(S){
@@ -108,14 +112,13 @@ export function drive(S, gm){
     S.drowsy = clamp(S.drowsy + dt * (S.win === "open" ? -.6 : .45) * (S.radio === "dhamma" ? 1.4 : S.radio === "music" ? .8 : 1));
     S.san = clamp(S.san + dt * ((S.radio === "music" ? .05 : S.radio === "dhamma" ? .04 : 0) - (S.drowsy > 70 ? .04 : 0)));
     S.dread = clamp(S.dread + dt * (-.02 - (S.radio === "dhamma" ? .08 : 0) + (S.lights === "high" ? .02 : 0) + (S.win === "open" ? .02 : 0)));
-    if (S.restOffer && S.min > S.restOffer.until) S.restOffer = null;
 
     const end = checkEnding(S);
     if (end) { out.push({ type: "end", key: end }); break; }
     if (S.km >= S.nextKm && S.km < TOTAL_KM - 5) { nextEvent(S); out.push({ type: "decision" }); break; }
 
     S.logT += dt;
-    if (S.logT >= LOG_EVERY) { S.logT = 0; out.push({ type: "log", ...logLine(S) }); }
+    if (S.logT >= LOG_EVERY) { S.logT = 0; const line = logLine(S); if (line) out.push({ type: "log", ...line }); }
     if (!S.warnedFuel && S.fuel < 15) { S.warnedFuel = true; out.push({ type: "log", kind: "warn", text: pick(L.FUEL_LOW) }); }
     if (!S.warnedLate && S.min > 240) { S.warnedLate = true; out.push({ type: "log", kind: "thought", text: pick(L.LATE) }); }
 
@@ -134,8 +137,8 @@ export function drive(S, gm){
     }
     if (!S.restOffer && S.min >= S.nextRest) {
       const i = Math.random() * L.RESTS.length | 0;
-      S.restOffer = { i, until: S.min + 6 }; S.nextRest = S.min + between(50, 85);
-      out.push({ type: "rest", text: L.RESTS[i].line }); break;
+      S.restOffer = { i }; S.nextRest = S.min + between(50, 85); S.phase = "rest";
+      out.push({ type: "rest" }); break;
     }
     if (S.drowsy > 75 && Math.random() < dt * .015 * (S.drowsy - 75) / 25) { out.push({ type: "doze", ...doze(S) }); break; }
   }
@@ -186,7 +189,11 @@ function doze(S){
   return { ...res, ds: S.san - before };
 }
 
-// Pulling in at the stop offered in the log. Any stop can turn out not to be what it looked like.
+// A rest stop comes up: the drive holds (phase "rest") until the player pulls in or drives past.
+export const restLine = S => L.RESTS[S.restOffer.i].line;
+export function leaveRest(S){ S.restOffer = null; S.phase = "drive"; }
+
+// Pulling in at the stop. Any stop can turn out not to be what it looked like.
 export function takeRest(S){
   const R = L.RESTS[S.restOffer.i], before = { san: S.san, fuel: S.fuel };
   S.restOffer = null;
